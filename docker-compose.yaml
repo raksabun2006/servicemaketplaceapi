@@ -18,6 +18,7 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-service_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-qwerqwer}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      FRONTEND_URL: ${FRONTEND_URL:-https://servicemaketplacefront.vercel.app}
       FILE_STORAGE_PATH: /uploads
     volumes:
       - service_marketplace_uploads:/uploads

@@ -2,6 +2,7 @@ package com.kh.serviceplatform.common.security;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -28,6 +30,12 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Value("${app.cors.allowed-origins:https://servicemaketplacefront.vercel.app,https://*.vercel.app,http://localhost:3000,http://localhost:5173,http://localhost:[*],http://127.0.0.1:[*]}")
+    private List<String> allowedOrigins;
+
+    @Value("${app.frontend-url:https://servicemaketplacefront.vercel.app}")
+    private String frontendUrl;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
@@ -36,21 +44,25 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of(
-                "http://localhost:[*]",
-                "http://127.0.0.1:[*]",
-                "https://localhost:[*]",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:3001",
-                "http://127.0.0.1:3001",
-                "http://localhost:5173",
-                "*"
-        ));
+
+        List<String> origins = new ArrayList<>(allowedOrigins != null ? allowedOrigins : List.of());
+        if (frontendUrl != null && !frontendUrl.isBlank() && !origins.contains(frontendUrl)) {
+            origins.add(frontendUrl);
+        }
+
+        // Clean origins (trim spaces, remove trailing slashes as Origin headers never have trailing slashes)
+        List<String> sanitizedOrigins = origins.stream()
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .map(origin -> origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin)
+                .distinct()
+                .toList();
+
+        configuration.setAllowedOriginPatterns(sanitizedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Link", "X-Total-Count", "Content-Disposition"));
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
