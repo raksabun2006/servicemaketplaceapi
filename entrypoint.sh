@@ -23,7 +23,7 @@ if [ -n "$DATABASE_URL" ]; then
 
     # Extract host, port, db
     HOST_PORT=$(echo "$HOST_PORT_DB" | cut -d'/' -f1)
-    DB_NAME=$(echo "$HOST_PORT_DB" | cut -d'/' -f2- | cut -d'?' -f1)
+    DB_NAME_QUERY=$(echo "$HOST_PORT_DB" | cut -d'/' -f2-)
 
     case "$HOST_PORT" in
         *:*)
@@ -36,11 +36,11 @@ if [ -n "$DATABASE_URL" ]; then
             ;;
     esac
 
-    if [ -n "$DB_HOST" ] && [ -n "$DB_NAME" ]; then
-        export SPRING_DATASOURCE_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    if [ -n "$DB_HOST" ] && [ -n "$DB_NAME_QUERY" ]; then
+        export SPRING_DATASOURCE_URL="jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME_QUERY}"
         [ -n "$DB_USER" ] && export SPRING_DATASOURCE_USERNAME="$DB_USER"
         [ -n "$DB_PASS" ] && export SPRING_DATASOURCE_PASSWORD="$DB_PASS"
-        echo "Configured datasource for: ${DB_HOST}:${DB_PORT}/${DB_NAME}"
+        echo "Configured datasource for: ${DB_HOST}:${DB_PORT}/${DB_NAME_QUERY}"
     fi
 fi
 

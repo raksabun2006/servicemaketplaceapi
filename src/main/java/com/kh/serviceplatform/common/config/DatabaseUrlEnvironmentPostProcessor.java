@@ -52,8 +52,14 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                 dbName = dbName.substring(0, dbName.indexOf('?'));
             }
 
+            String query = uri.getQuery();
+            String jdbcUrl = "jdbc:postgresql://" + host + ":" + port + "/" + dbName;
+            if (query != null && !query.isBlank()) {
+                jdbcUrl += "?" + query;
+            }
+
             Map<String, Object> targetProps = new HashMap<>();
-            targetProps.put("spring.datasource.url", "jdbc:postgresql://" + host + ":" + port + "/" + dbName);
+            targetProps.put("spring.datasource.url", jdbcUrl);
 
             String userInfo = uri.getUserInfo();
             if (userInfo != null && !userInfo.isBlank()) {
