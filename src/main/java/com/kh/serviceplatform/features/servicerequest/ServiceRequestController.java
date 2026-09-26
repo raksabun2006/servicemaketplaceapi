@@ -126,19 +126,16 @@ public class ServiceRequestController {
         return providerMatchingService.getRecommendedProviders(requestId);
     }
 
-    // GET service request by ID
+    // GET service request by ID (public access for visitors/users without account)
     @GetMapping("/api/v1/service-requests/{requestId}")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Get service request details", description = "Retrieve full details if owner/assigned, or summary if browsing",
-            security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Get service request details", description = "Retrieve full details if owner/assigned, or public summary details if browsing without an account")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Service request details retrieved"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "404", description = "Service request not found")
     })
     public ServiceRequestResponse getRequestById(@PathVariable UUID requestId) {
-        UUID currentUserId = SecurityUtils.getCurrentUserId();
-        UserRole currentRole = SecurityUtils.getCurrentUserRole();
+        UUID currentUserId = SecurityUtils.getOptionalCurrentUserId();
+        UserRole currentRole = SecurityUtils.getOptionalCurrentUserRole();
         return serviceRequestService.getRequestById(currentUserId, currentRole, requestId);
     }
 

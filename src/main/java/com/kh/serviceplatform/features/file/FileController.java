@@ -40,7 +40,7 @@ public class FileController {
     public ResponseEntity<Resource> downloadFile(@PathVariable String fileId) {
         String cleanId = fileId.contains(".") ? fileId.substring(0, fileId.indexOf('.')) : fileId;
         UUID parsedId = UUID.fromString(cleanId);
-        UUID currentUserId = getOptionalCurrentUserId();
+        UUID currentUserId = SecurityUtils.getOptionalCurrentUserId();
 
         StoredFile metadata = fileService.getFileMetadata(parsedId, currentUserId);
         Resource resource = fileService.downloadFile(parsedId, currentUserId);
@@ -51,7 +51,7 @@ public class FileController {
     @GetMapping("/filename/{filename}")
     @Operation(summary = "Download or stream a file by stored filename")
     public ResponseEntity<Resource> downloadFileByFilename(@PathVariable String filename) {
-        UUID currentUserId = getOptionalCurrentUserId();
+        UUID currentUserId = SecurityUtils.getOptionalCurrentUserId();
         StoredFile metadata = fileService.getFileMetadataByFilename(filename, currentUserId);
         Resource resource = fileService.downloadFileByFilename(filename, currentUserId);
         return buildFileResponse(metadata, resource);
@@ -65,7 +65,7 @@ public class FileController {
             @PathVariable String filename
     ) {
         String storageKey = directory + "/" + userId + "/" + filename;
-        UUID currentUserId = getOptionalCurrentUserId();
+        UUID currentUserId = SecurityUtils.getOptionalCurrentUserId();
         StoredFile metadata = fileService.getFileMetadataByStorageKey(storageKey, currentUserId);
         Resource resource = fileService.downloadFileByStorageKey(storageKey, currentUserId);
         return buildFileResponse(metadata, resource);
@@ -74,7 +74,7 @@ public class FileController {
     @GetMapping("/{fileId:[0-9a-fA-F\\-]{36}}/info")
     @Operation(summary = "Get file metadata")
     public FileResponse getFileInfo(@PathVariable UUID fileId) {
-        UUID currentUserId = getOptionalCurrentUserId();
+        UUID currentUserId = SecurityUtils.getOptionalCurrentUserId();
         return fileService.getFileInfo(fileId, currentUserId);
     }
 
@@ -115,13 +115,5 @@ public class FileController {
                 .header(HttpHeaders.CACHE_CONTROL, isImage ? "public, max-age=86400" : "no-cache")
                 .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
-    }
-
-    private UUID getOptionalCurrentUserId() {
-        try {
-            return SecurityUtils.getCurrentUserId();
-        } catch (Exception e) {
-            return null;
-        }
     }
 }
