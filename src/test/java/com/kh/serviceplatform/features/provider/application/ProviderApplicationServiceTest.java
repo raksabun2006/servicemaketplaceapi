@@ -2,6 +2,7 @@ package com.kh.serviceplatform.features.provider.application;
 
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ForbiddenException;
+import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
 import com.kh.serviceplatform.features.auth.User;
 import com.kh.serviceplatform.features.auth.UserRepository;
 import com.kh.serviceplatform.features.auth.enums.UserRole;
@@ -151,6 +152,55 @@ class ProviderApplicationServiceTest {
 
         assertThrows(BadRequestException.class, () ->
                 applicationService.submitApplication(customerId, validRequest)
+        );
+    }
+
+    @Test
+    void shouldGetMyLatestApplicationByUserId() {
+        ProviderApplication app = ProviderApplication.builder()
+                .id(UUID.randomUUID())
+                .user(customerUser)
+                .businessName("Dara Electrical Services")
+                .experienceYears(5)
+                .serviceArea("Phnom Penh")
+                .applicationStatus(ProviderApplicationStatus.PENDING)
+                .build();
+
+        when(applicationRepository.findByUserId(customerId)).thenReturn(Optional.of(app));
+        when(mapper.toResponse(app)).thenReturn(
+                new ProviderApplicationResponse(
+                        app.getId(),
+                        new ProviderApplicationResponse.ApplicantDto(customerId, "Customer User", "customer@example.com", "+85512345678"),
+                        "Dara Electrical Services",
+                        "Bio",
+                        5,
+                        "Phnom Penh",
+                        "+85512345678",
+                        "Street 2004",
+                        "Phnom Penh",
+                        "Sen Sok",
+                        11.5564,
+                        104.9282,
+                        ProviderApplicationStatus.PENDING,
+                        null, null, null, null, null, null, null, null, null
+                )
+        );
+
+        ProviderApplicationResponse response = applicationService.getMyLatestApplication(customerId);
+
+        assertNotNull(response);
+        assertEquals("Dara Electrical Services", response.businessName());
+        assertEquals(ProviderApplicationStatus.PENDING, response.applicationStatus());
+        verify(applicationRepository).findByUserId(customerId);
+    }
+
+    @Test
+    void shouldThrowNotFoundWhenNoApplicationForUser() {
+        when(applicationRepository.findByUserId(customerId)).thenReturn(Optional.empty());
+        when(applicationRepository.findTopByUserIdOrderByCreatedAtDesc(customerId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                applicationService.getMyLatestApplication(customerId)
         );
     }
 

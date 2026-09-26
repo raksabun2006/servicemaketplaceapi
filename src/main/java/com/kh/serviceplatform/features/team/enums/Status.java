@@ -1,4 +1,7 @@
 package com.kh.serviceplatform.features.team.enums;
 
-public class Status {
+public enum Status {
+    ACTIVE ,
+    APPROVE,
+    REJECT
 }

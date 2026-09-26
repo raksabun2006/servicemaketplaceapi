@@ -1,25 +1,44 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: service-marketplace-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-service_marketplace}
+      DB_USERNAME: ${POSTGRES_USER:-service_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-qwerqwer}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      FILE_STORAGE_PATH: /uploads
+    volumes:
+      - service_marketplace_uploads:/uploads
+
   postgres:
     image: postgres:17
     container_name: service-marketplace-postgres
     restart: unless-stopped
-
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
+      POSTGRES_DB: ${POSTGRES_DB:-service_marketplace}
+      POSTGRES_USER: ${POSTGRES_USER:-service_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qwerqwer}
     ports:
-      - "${POSTGRES_PORT}:5432"
-
+      - "${POSTGRES_PORT:-5436}:5432"
     volumes:
       - service_marketplace_postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+          "pg_isready -U ${POSTGRES_USER:-service_user} -d ${POSTGRES_DB:-service_marketplace}"
         ]
       interval: 10s
       timeout: 5s
@@ -27,3 +46,4 @@ services:
 
 volumes:
   service_marketplace_postgres_data:
+  service_marketplace_uploads:

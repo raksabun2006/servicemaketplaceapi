@@ -34,13 +34,16 @@ public class FileController {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         return fileService.uploadFile(file, fileType, currentUserId);
     }
-
     @GetMapping("/{fileId:[0-9a-fA-F\\-]{36}}")
-    @Operation(summary = "Download or stream a file by ID")
     public ResponseEntity<Resource> downloadFile(@PathVariable UUID fileId) {
         UUID currentUserId = getOptionalCurrentUserId();
-        StoredFile metadata = fileService.getFileMetadata(fileId, currentUserId);
-        Resource resource = fileService.downloadFile(fileId, currentUserId);
+
+        StoredFile metadata =
+                fileService.getFileMetadata(fileId, currentUserId);
+
+        Resource resource =
+                fileService.downloadFile(fileId, currentUserId);
+
         return buildFileResponse(metadata, resource);
     }
 

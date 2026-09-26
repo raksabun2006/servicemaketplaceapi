@@ -23,6 +23,11 @@ public interface ProviderApplicationRepository extends JpaRepository<ProviderApp
     @EntityGraph(attributePaths = {"user", "identityDocumentFile", "profilePhotoFile", "reviewedBy"})
     Optional<ProviderApplication> findTopByUserIdOrderByCreatedAtDesc(UUID userId);
 
+    @EntityGraph(attributePaths = {"user", "identityDocumentFile", "profilePhotoFile", "reviewedBy"})
+    Optional<ProviderApplication> findByUserId(UUID userId);
+
+    boolean existsByUserId(UUID userId);
+
     boolean existsByUserIdAndApplicationStatus(UUID userId, ProviderApplicationStatus status);
 
     @EntityGraph(attributePaths = {"user", "identityDocumentFile", "profilePhotoFile", "reviewedBy"})

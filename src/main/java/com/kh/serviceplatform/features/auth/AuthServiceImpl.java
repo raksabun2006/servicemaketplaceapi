@@ -2,7 +2,9 @@ package com.kh.serviceplatform.features.auth;
 
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ForbiddenException;
+import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
 import com.kh.serviceplatform.common.security.JwtService;
+import com.kh.serviceplatform.common.util.GeoUtils;
 import com.kh.serviceplatform.features.auth.dto.AuthResponse;
 import com.kh.serviceplatform.features.auth.dto.LoginRequest;
 import com.kh.serviceplatform.features.auth.dto.RegisterRequest;
@@ -10,11 +12,9 @@ import com.kh.serviceplatform.features.auth.enums.UserRole;
 import com.kh.serviceplatform.features.auth.enums.UserStatus;
 import com.kh.serviceplatform.features.file.FileRepository;
 import com.kh.serviceplatform.features.file.StoredFile;
-import com.kh.serviceplatform.features.file.enums.FileType;
-import com.kh.serviceplatform.features.provider.ProviderProfile;
-import com.kh.serviceplatform.features.provider.ProviderProfileRepository;
-import com.kh.serviceplatform.features.provider.enums.AvailabilityStatus;
-import com.kh.serviceplatform.features.provider.enums.ProviderVerificationStatus;
+import com.kh.serviceplatform.features.provider.application.ProviderApplication;
+import com.kh.serviceplatform.features.provider.application.ProviderApplicationRepository;
+import com.kh.serviceplatform.features.provider.application.enums.ProviderApplicationStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
-    private final ProviderProfileRepository providerProfileRepository;
+    private final ProviderApplicationRepository providerApplicationRepository;
     private final FileRepository fileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -59,7 +59,41 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Registration is only permitted for CUSTOMER or PROVIDER roles.");
         }
 
-        // 4. Create User directly with the requested role
+        // 4. Validate provider-specific fields if registering as PROVIDER
+        if (requestedRole == UserRole.PROVIDER) {
+            if (request.businessName() == null || request.businessName().isBlank()) {
+                throw new BadRequestException("Business name is required for provider registration");
+            }
+            if (request.experienceYears() == null) {
+                throw new BadRequestException("Experience years is required for provider registration");
+            }
+            if (request.experienceYears() < 0) {
+                throw new BadRequestException("Experience years cannot be negative");
+            }
+            if (request.serviceArea() == null || request.serviceArea().isBlank()) {
+                throw new BadRequestException("Service area is required for provider registration");
+            }
+            if (request.latitude() != null && request.longitude() != null) {
+                GeoUtils.validateCoordinates(request.latitude(), request.longitude());
+            } else if (request.latitude() != null || request.longitude() != null) {
+                throw new BadRequestException("Both latitude and longitude must be provided together");
+            }
+        }
+
+        // 5. Lookup file references if provided
+//        StoredFile profilePhoto = null;
+//        if (request.profilePhotoFileId() != null) {
+//            profilePhoto = fileRepository.findById(request.profilePhotoFileId())
+//                    .orElseThrow(() -> new ResourceNotFoundException("Profile photo file not found with ID: " + request.profilePhotoFileId()));
+//        }
+
+        StoredFile identityDoc = null;
+        if (request.identityDocumentFileId() != null) {
+            identityDoc = fileRepository.findById(request.identityDocumentFileId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Identity document file not found with ID: " + request.identityDocumentFileId()));
+        }
+
+        // 6. Create User
         User user = User.builder()
                 .fullName(request.fullName().trim())
                 .email(email)
@@ -67,71 +101,38 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .role(requestedRole)
                 .status(UserStatus.ACTIVE)
+//                .avatarFile(profilePhoto)
                 .emailVerified(false)
                 .phoneVerified(false)
                 .build();
 
         user = userRepository.save(user);
 
-        // 5. If registering as PROVIDER, directly create ProviderProfile
+        // 7. If PROVIDER, create ProviderApplication with PENDING status
         if (requestedRole == UserRole.PROVIDER) {
-            String businessName = (request.businessName() != null && !request.businessName().isBlank())
-                    ? request.businessName().trim()
-                    : user.getFullName();
-
-            String serviceArea = (request.serviceArea() != null && !request.serviceArea().isBlank())
-                    ? request.serviceArea().trim()
-                    : "General";
-
-            Integer experienceYears = request.experienceYears() != null ? request.experienceYears() : 0;
-
-            StoredFile profilePhoto = null;
-            if (request.profilePhotoFileId() != null) {
-                profilePhoto = fileRepository.findById(request.profilePhotoFileId())
-                        .filter(f -> f.getFileType() == FileType.AVATAR)
-                        .orElse(null);
-                if (profilePhoto != null) {
-                    user.setAvatarFile(profilePhoto);
-                    userRepository.save(user);
-                }
-            }
-
-            StoredFile identityDoc = null;
-            if (request.identityDocumentFileId() != null) {
-                identityDoc = fileRepository.findById(request.identityDocumentFileId())
-                        .filter(f -> f.getFileType() == FileType.PROVIDER_DOCUMENT)
-                        .orElse(null);
-            }
-
-            ProviderProfile profile = ProviderProfile.builder()
+            ProviderApplication application = ProviderApplication.builder()
                     .user(user)
-                    .businessName(businessName)
-                    .bio(request.bio() != null ? request.bio().trim() : null)
-                    .experienceYears(experienceYears)
-                    .serviceArea(serviceArea)
-                    .address(request.address() != null ? request.address().trim() : null)
-                    .city(request.city() != null ? request.city().trim() : null)
-                    .district(request.district() != null ? request.district().trim() : null)
-                    .latitude(request.latitude() != null ? request.latitude().doubleValue() : null)
-                    .longitude(request.longitude() != null ? request.longitude().doubleValue() : null)
-                    .profilePhotoFile(profilePhoto)
+                    .businessName(request.businessName().trim())
+                    .bio(request.bio() != null && !request.bio().isBlank() ? request.bio().trim() : null)
+                    .experienceYears(request.experienceYears())
+                    .serviceArea(request.serviceArea().trim())
+                    .phone(request.phone() != null && !request.phone().isBlank() ? request.phone().trim() : user.getPhone())
+                    .address(request.address() != null && !request.address().isBlank() ? request.address().trim() : null)
+                    .city(request.city() != null && !request.city().isBlank() ? request.city().trim() : null)
+                    .district(request.district() != null && !request.district().isBlank() ? request.district().trim() : null)
+                    .latitude(request.latitude())
+                    .longitude(request.longitude())
+                    .applicationStatus(ProviderApplicationStatus.PENDING)
                     .identityDocumentFile(identityDoc)
-                    .isAvailable(true)
-                    .availabilityStatus(AvailabilityStatus.AVAILABLE)
-                    .serviceRadiusKm(10.0)
-                    .isVerified(false)
-                    .verificationStatus(ProviderVerificationStatus.UNVERIFIED)
-                    .averageRating(0.0)
-                    .totalReviews(0)
-                    .completedServices(0)
+//                    .profilePhotoFile(profilePhoto)
                     .build();
 
-            providerProfileRepository.save(profile);
-            log.info("Provider registered directly. Created user: {} and profile for business: {}",
-                    user.getEmail(), businessName);
+            providerApplicationRepository.save(application);
+            log.info("Provider registered with pending application. Created user: {} and application for business: {}",
+                    user.getEmail(), application.getBusinessName());
         }
 
-        // 6. Generate tokens with the assigned role
+        // 8. Generate tokens with the assigned role
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 

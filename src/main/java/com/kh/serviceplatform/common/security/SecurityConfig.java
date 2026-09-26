@@ -67,35 +67,95 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+
+                        // =========================
                         // Public endpoints
+                        // =========================
                         .requestMatchers(
+                                "/health",
+                                "/actuator/health",
                                 "/api/v1/auth/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/error"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/files/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/services/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/providers").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/providers/nearby").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/providers/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/providers/*/services").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/providers/*/reviews").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/service-requests").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/service-requests/nearby").permitAll()
 
-                        // Protected endpoints handled via Method Security / authenticated
+                        // OPTIONS / CORS preflight
+                        .requestMatchers(
+                                HttpMethod.OPTIONS,
+                                "/**"
+                        ).permitAll()
+
+                        // =========================
+                        // Public GET APIs
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/categories/**"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/services/**"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/providers"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/providers/nearby"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/providers/*"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/providers/*/services"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/providers/*/reviews"
+                        ).permitAll()
+
+                        // Service request list + detail
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/service-requests/**"
+                        ).permitAll()
+
+                        // =========================
+                        // Public files
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/files/**"
+                        ).permitAll()
+
+                        // =========================
+                        // Everything else
+                        // =========================
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) ->
-                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")
+                                response.sendError(
+                                        HttpServletResponse.SC_UNAUTHORIZED,
+                                        "Unauthorized"
+                                )
                         )
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                )
                 .build();
     }
 }

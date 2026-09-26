@@ -102,7 +102,8 @@ public class ProviderApplicationServiceImpl implements ProviderApplicationServic
     @Override
     @Transactional(readOnly = true)
     public ProviderApplicationResponse getMyLatestApplication(UUID userId) {
-        ProviderApplication application = applicationRepository.findTopByUserIdOrderByCreatedAtDesc(userId)
+        ProviderApplication application = applicationRepository.findByUserId(userId)
+                .or(() -> applicationRepository.findTopByUserIdOrderByCreatedAtDesc(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("No provider application found for current user"));
 
         return mapper.toResponse(application);
@@ -111,6 +112,7 @@ public class ProviderApplicationServiceImpl implements ProviderApplicationServic
     @Override
     public ProviderApplicationResponse updateMyPendingApplication(UUID userId, ProviderApplicationRequest request) {
         ProviderApplication application = applicationRepository.findTopByUserIdOrderByCreatedAtDesc(userId)
+                .or(() -> applicationRepository.findByUserId(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("No provider application found for current user"));
 
         if (application.getApplicationStatus() != ProviderApplicationStatus.PENDING) {
@@ -149,6 +151,7 @@ public class ProviderApplicationServiceImpl implements ProviderApplicationServic
     @Override
     public ProviderApplicationResponse cancelMyApplication(UUID userId) {
         ProviderApplication application = applicationRepository.findTopByUserIdOrderByCreatedAtDesc(userId)
+                .or(() -> applicationRepository.findByUserId(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("No provider application found for current user"));
 
         if (application.getApplicationStatus() != ProviderApplicationStatus.PENDING) {
