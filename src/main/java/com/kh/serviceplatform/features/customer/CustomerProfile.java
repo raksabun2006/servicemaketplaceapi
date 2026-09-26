@@ -38,6 +38,9 @@ public class CustomerProfile {
     @Column(length = 100)
     private String city;
 
+    @Column(length = 100)
+    private String district;
+
     @Column(name = "postal_code", length = 20)
     private String postalCode;
 

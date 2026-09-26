@@ -19,6 +19,9 @@ public interface FileRepository extends JpaRepository<StoredFile, UUID> {
     Optional<StoredFile> findByStorageKey(String storageKey);
 
     @EntityGraph(attributePaths = {"owner"})
+    Optional<StoredFile> findByStoredFilename(String storedFilename);
+
+    @EntityGraph(attributePaths = {"owner"})
     Page<StoredFile> findByOwnerId(UUID ownerId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"owner"})

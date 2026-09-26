@@ -34,16 +34,26 @@ public class FileController {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         return fileService.uploadFile(file, fileType, currentUserId);
     }
-    @GetMapping("/{fileId:[0-9a-fA-F\\-]{36}}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable UUID fileId) {
+
+    @GetMapping("/{fileId:[0-9a-fA-F\\-]{36}(?:\\.[a-zA-Z0-9]+)?}")
+    @Operation(summary = "Download or stream a file by file ID (with optional extension)")
+    public ResponseEntity<Resource> downloadFile(@PathVariable String fileId) {
+        String cleanId = fileId.contains(".") ? fileId.substring(0, fileId.indexOf('.')) : fileId;
+        UUID parsedId = UUID.fromString(cleanId);
         UUID currentUserId = getOptionalCurrentUserId();
 
-        StoredFile metadata =
-                fileService.getFileMetadata(fileId, currentUserId);
+        StoredFile metadata = fileService.getFileMetadata(parsedId, currentUserId);
+        Resource resource = fileService.downloadFile(parsedId, currentUserId);
 
-        Resource resource =
-                fileService.downloadFile(fileId, currentUserId);
+        return buildFileResponse(metadata, resource);
+    }
 
+    @GetMapping("/filename/{filename}")
+    @Operation(summary = "Download or stream a file by stored filename")
+    public ResponseEntity<Resource> downloadFileByFilename(@PathVariable String filename) {
+        UUID currentUserId = getOptionalCurrentUserId();
+        StoredFile metadata = fileService.getFileMetadataByFilename(filename, currentUserId);
+        Resource resource = fileService.downloadFileByFilename(filename, currentUserId);
         return buildFileResponse(metadata, resource);
     }
 
@@ -85,8 +95,10 @@ public class FileController {
             mediaType = MediaType.APPLICATION_OCTET_STREAM;
         }
 
+        boolean isImage = metadata.getContentType() != null && metadata.getContentType().toLowerCase().startsWith("image/");
+
         ContentDisposition disposition;
-        if (metadata.getFileType() == FileType.PROVIDER_DOCUMENT || metadata.getFileType() == FileType.OTHER) {
+        if (!isImage && (metadata.getFileType() == FileType.PROVIDER_DOCUMENT || metadata.getFileType() == FileType.OTHER)) {
             disposition = ContentDisposition.attachment()
                     .filename(metadata.getOriginalFilename())
                     .build();
@@ -100,6 +112,7 @@ public class FileController {
                 .contentType(mediaType)
                 .contentLength(metadata.getFileSize())
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header(HttpHeaders.CACHE_CONTROL, isImage ? "public, max-age=86400" : "no-cache")
                 .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
     }

@@ -144,11 +144,17 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // =========================
-                        // Public files
+                        // Public files & uploads (images/resources for visitors without account)
                         // =========================
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/v1/files/**"
+                                "/api/v1/files/**",
+                                "/uploads/**"
+                        ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.HEAD,
+                                "/api/v1/files/**",
+                                "/uploads/**"
                         ).permitAll()
 
                         // =========================

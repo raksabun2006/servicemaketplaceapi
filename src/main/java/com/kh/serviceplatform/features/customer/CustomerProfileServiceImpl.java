@@ -101,6 +101,9 @@ public class CustomerProfileServiceImpl implements CustomerProfileService {
         if (request.city() != null) {
             profile.setCity(request.city().trim());
         }
+        if (request.district() != null) {
+            profile.setDistrict(request.district().trim());
+        }
         if (request.postalCode() != null) {
             profile.setPostalCode(request.postalCode().trim());
         }

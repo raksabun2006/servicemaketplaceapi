@@ -25,6 +25,7 @@ public class CustomerProfileMapper {
                 profile.getPreferredCurrency(),
                 profile.getAddress(),
                 profile.getCity(),
+                profile.getDistrict(),
                 profile.getPostalCode(),
                 profile.getNotes(),
                 profile.getCreatedAt(),

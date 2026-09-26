@@ -15,7 +15,7 @@ public record RegisterRequest(
         @Size(max = 255, message = "Email cannot exceed 255 characters")
         String email,
 
-        @Pattern(regexp = "^[0-9+\\- ]{8,20}$", message = "Invalid phone number format")
+        @Pattern(regexp = "^$|^[0-9+\\- ]{8,20}$", message = "Invalid phone number format")
         String phone,
 
         UserRole role,
@@ -50,10 +50,30 @@ public record RegisterRequest(
 
         Double longitude,
 
-        UUID identityDocumentFileId
+        UUID identityDocumentFileId,
 
-//        UUID profilePhotoFileId
+        UUID profilePhotoFileId
 ) {
+    public RegisterRequest(
+            String fullName,
+            String email,
+            String phone,
+            UserRole role,
+            String password,
+            String businessName,
+            String bio,
+            Integer experienceYears,
+            String serviceArea,
+            String address,
+            String city,
+            String district,
+            Double latitude,
+            Double longitude,
+            UUID identityDocumentFileId
+    ) {
+        this(fullName, email, phone, role, password, businessName, bio, experienceYears, serviceArea, address, city, district, latitude, longitude, identityDocumentFileId, null);
+    }
+
     public String getFullName() { return fullName(); }
     public String getEmail() { return email(); }
     public String getPhone() { return phone(); }
@@ -69,5 +89,5 @@ public record RegisterRequest(
     public Double getLatitude() { return latitude(); }
     public Double getLongitude() { return longitude(); }
     public UUID getIdentityDocumentFileId() { return identityDocumentFileId(); }
-//    public UUID getProfilePhotoFileId() { return profilePhotoFileId(); }
+    public UUID getProfilePhotoFileId() { return profilePhotoFileId(); }
 }

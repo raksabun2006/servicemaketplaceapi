@@ -16,9 +16,13 @@ public interface FileService {
 
     Resource downloadFileByStorageKey(String storageKey, UUID currentUserId);
 
+    Resource downloadFileByFilename(String filename, UUID currentUserId);
+
     StoredFile getFileMetadata(UUID fileId, UUID currentUserId);
 
     StoredFile getFileMetadataByStorageKey(String storageKey, UUID currentUserId);
+
+    StoredFile getFileMetadataByFilename(String filename, UUID currentUserId);
 
     FileResponse getFileInfo(UUID fileId, UUID currentUserId);
 

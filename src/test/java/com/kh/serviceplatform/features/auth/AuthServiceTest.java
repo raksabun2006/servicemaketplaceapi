@@ -8,6 +8,7 @@ import com.kh.serviceplatform.features.auth.dto.RegisterRequest;
 import com.kh.serviceplatform.features.auth.dto.UserResponse;
 import com.kh.serviceplatform.features.auth.enums.UserRole;
 import com.kh.serviceplatform.features.auth.enums.UserStatus;
+import com.kh.serviceplatform.features.customer.CustomerProfileRepository;
 import com.kh.serviceplatform.features.file.FileRepository;
 import com.kh.serviceplatform.features.file.StoredFile;
 import com.kh.serviceplatform.features.file.enums.FileType;
@@ -36,6 +37,9 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CustomerProfileRepository customerProfileRepository;
 
     @Mock
     private ProviderApplicationRepository providerApplicationRepository;

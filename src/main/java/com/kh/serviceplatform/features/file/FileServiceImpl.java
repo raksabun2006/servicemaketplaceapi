@@ -174,6 +174,27 @@ public class FileServiceImpl implements FileService {
     }
 
     // =========================================================
+    // Download by filename
+    // =========================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public Resource downloadFileByFilename(
+            String filename,
+            UUID currentUserId
+    ) {
+        StoredFile storedFile =
+                getFileByFilenameAndValidateAccess(
+                        filename,
+                        currentUserId
+                );
+
+        return fileStorageService.download(
+                storedFile.getStorageKey()
+        );
+    }
+
+    // =========================================================
     // Metadata by ID
     // =========================================================
 
@@ -201,6 +222,22 @@ public class FileServiceImpl implements FileService {
     ) {
         return getFileByStorageKeyAndValidateAccess(
                 storageKey,
+                currentUserId
+        );
+    }
+
+    // =========================================================
+    // Metadata by filename
+    // =========================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public StoredFile getFileMetadataByFilename(
+            String filename,
+            UUID currentUserId
+    ) {
+        return getFileByFilenameAndValidateAccess(
+                filename,
                 currentUserId
         );
     }
@@ -301,9 +338,6 @@ public class FileServiceImpl implements FileService {
                                 )
                         );
 
-        // IMPORTANT:
-        // Pass the real currentUserId.
-        // Do NOT pass null here.
         return validateAccess(
                 storedFile,
                 currentUserId
@@ -340,6 +374,26 @@ public class FileServiceImpl implements FileService {
     }
 
     // =========================================================
+    // Find file by filename + validate access
+    // =========================================================
+
+    private StoredFile getFileByFilenameAndValidateAccess(
+            String filename,
+            UUID currentUserId
+    ) {
+        if (filename == null || filename.isBlank()) {
+            throw new BadRequestException("Filename is required");
+        }
+
+        StoredFile storedFile = fileRepository.findByStoredFilename(filename)
+                .orElseGet(() -> fileRepository.findByStorageKey(filename)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException("File not found with filename: " + filename)));
+
+        return validateAccess(storedFile, currentUserId);
+    }
+
+    // =========================================================
     // Access validation
     // =========================================================
 
@@ -347,17 +401,20 @@ public class FileServiceImpl implements FileService {
             StoredFile storedFile,
             UUID currentUserId
     ) {
-        FileType type = storedFile.getFileType();
-
         /*
          * =====================================================
-         * PUBLIC FILES
+         * PUBLIC FILES & IMAGES
          * =====================================================
          *
-         * These files can be viewed by visitors without
-         * an account.
+         * Visitors without an account can view:
+         * - Avatars
+         * - Service images
+         * - Portfolio images
+         * - Request images
+         * - Category icons
+         * - Any other image file (except sensitive PROVIDER_DOCUMENT)
          */
-        if (isPublicFileType(type)) {
+        if (isPublicFile(storedFile)) {
             return storedFile;
         }
 
@@ -366,7 +423,8 @@ public class FileServiceImpl implements FileService {
          * PROTECTED FILES
          * =====================================================
          *
-         * PROVIDER_DOCUMENT and OTHER require authentication.
+         * PROVIDER_DOCUMENT (e.g. government ID) and sensitive files
+         * strictly require authentication.
          */
         if (currentUserId == null) {
             throw new ForbiddenException(
@@ -392,10 +450,8 @@ public class FileServiceImpl implements FileService {
         /*
          * Owner can access their own protected files.
          */
-        if (storedFile.getOwner()
-                .getId()
-                .equals(currentUserId)) {
-
+        if (storedFile.getOwner() != null &&
+                storedFile.getOwner().getId().equals(currentUserId)) {
             return storedFile;
         }
 
@@ -405,15 +461,33 @@ public class FileServiceImpl implements FileService {
     }
 
     // =========================================================
-    // Public file types
+    // Public file types check
     // =========================================================
 
-    private boolean isPublicFileType(FileType type) {
-        return type == FileType.AVATAR
+    private boolean isPublicFile(StoredFile storedFile) {
+        if (storedFile == null) {
+            return false;
+        }
+
+        FileType type = storedFile.getFileType();
+
+        // Sensitive provider identity documents remain protected
+        if (type == FileType.PROVIDER_DOCUMENT) {
+            return false;
+        }
+
+        // Standard marketplace media types are public
+        if (type == FileType.AVATAR
                 || type == FileType.SERVICE_IMAGE
                 || type == FileType.PORTFOLIO_IMAGE
                 || type == FileType.REQUEST_IMAGE
-                || type == FileType.CATEGORY_ICON;
+                || type == FileType.CATEGORY_ICON) {
+            return true;
+        }
+
+        // Any image content type is viewable publicly
+        return storedFile.getContentType() != null
+                && storedFile.getContentType().toLowerCase().startsWith("image/");
     }
 
     // =========================================================

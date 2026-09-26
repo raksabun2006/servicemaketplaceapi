@@ -10,6 +10,8 @@ import com.kh.serviceplatform.features.auth.dto.LoginRequest;
 import com.kh.serviceplatform.features.auth.dto.RegisterRequest;
 import com.kh.serviceplatform.features.auth.enums.UserRole;
 import com.kh.serviceplatform.features.auth.enums.UserStatus;
+import com.kh.serviceplatform.features.customer.CustomerProfile;
+import com.kh.serviceplatform.features.customer.CustomerProfileRepository;
 import com.kh.serviceplatform.features.file.FileRepository;
 import com.kh.serviceplatform.features.file.StoredFile;
 import com.kh.serviceplatform.features.provider.application.ProviderApplication;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final CustomerProfileRepository customerProfileRepository;
     private final ProviderApplicationRepository providerApplicationRepository;
     private final FileRepository fileRepository;
     private final PasswordEncoder passwordEncoder;
@@ -46,7 +49,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Email already registered");
         }
 
-        // 2. Check duplicate phone
+        // 2. Check duplicate phone (only if provided and non-blank)
         if (request.phone() != null &&
                 !request.phone().isBlank() &&
                 userRepository.existsByPhone(request.phone().trim())) {
@@ -59,7 +62,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Registration is only permitted for CUSTOMER or PROVIDER roles.");
         }
 
-        // 4. Validate provider-specific fields if registering as PROVIDER
+        // 4. Validate provider-specific fields ONLY if registering as PROVIDER
+        // Customers do NOT need to provide any business or location details!
         if (requestedRole == UserRole.PROVIDER) {
             if (request.businessName() == null || request.businessName().isBlank()) {
                 throw new BadRequestException("Business name is required for provider registration");
@@ -80,20 +84,19 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 5. Lookup file references if provided
-//        StoredFile profilePhoto = null;
-//        if (request.profilePhotoFileId() != null) {
-//            profilePhoto = fileRepository.findById(request.profilePhotoFileId())
-//                    .orElseThrow(() -> new ResourceNotFoundException("Profile photo file not found with ID: " + request.profilePhotoFileId()));
-//        }
-
         StoredFile identityDoc = null;
         if (request.identityDocumentFileId() != null) {
             identityDoc = fileRepository.findById(request.identityDocumentFileId())
                     .orElseThrow(() -> new ResourceNotFoundException("Identity document file not found with ID: " + request.identityDocumentFileId()));
         }
 
-        // 6. Create User
+        StoredFile profilePhoto = null;
+        if (request.profilePhotoFileId() != null) {
+            profilePhoto = fileRepository.findById(request.profilePhotoFileId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Profile photo file not found with ID: " + request.profilePhotoFileId()));
+        }
+
+        // 5. Create User
         User user = User.builder()
                 .fullName(request.fullName().trim())
                 .email(email)
@@ -101,15 +104,28 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .role(requestedRole)
                 .status(UserStatus.ACTIVE)
-//                .avatarFile(profilePhoto)
+                .avatarFile(profilePhoto)
                 .emailVerified(false)
                 .phoneVerified(false)
                 .build();
 
         user = userRepository.save(user);
 
-        // 7. If PROVIDER, create ProviderApplication with PENDING status
-        if (requestedRole == UserRole.PROVIDER) {
+        // 6. Handle role-specific profile creation
+        if (requestedRole == UserRole.CUSTOMER) {
+            // Effortless customer onboarding: location fields are completely optional
+            CustomerProfile customerProfile = CustomerProfile.builder()
+                    .user(user)
+                    .preferredLanguage("en")
+                    .preferredCurrency("USD")
+                    .address(request.address() != null && !request.address().isBlank() ? request.address().trim() : null)
+                    .city(request.city() != null && !request.city().isBlank() ? request.city().trim() : null)
+                    .district(request.district() != null && !request.district().isBlank() ? request.district().trim() : null)
+                    .build();
+
+            customerProfileRepository.save(customerProfile);
+            log.info("Customer registered successfully without requiring mandatory location: {}", user.getEmail());
+        } else if (requestedRole == UserRole.PROVIDER) {
             ProviderApplication application = ProviderApplication.builder()
                     .user(user)
                     .businessName(request.businessName().trim())
@@ -124,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
                     .longitude(request.longitude())
                     .applicationStatus(ProviderApplicationStatus.PENDING)
                     .identityDocumentFile(identityDoc)
-//                    .profilePhotoFile(profilePhoto)
+                    .profilePhotoFile(profilePhoto)
                     .build();
 
             providerApplicationRepository.save(application);
@@ -132,7 +148,7 @@ public class AuthServiceImpl implements AuthService {
                     user.getEmail(), application.getBusinessName());
         }
 
-        // 8. Generate tokens with the assigned role
+        // 7. Generate tokens with the assigned role
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 

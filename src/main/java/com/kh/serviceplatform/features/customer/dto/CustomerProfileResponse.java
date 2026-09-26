@@ -14,6 +14,7 @@ public record CustomerProfileResponse(
         String preferredCurrency,
         String address,
         String city,
+        String district,
         String postalCode,
         String notes,
         Instant createdAt,
