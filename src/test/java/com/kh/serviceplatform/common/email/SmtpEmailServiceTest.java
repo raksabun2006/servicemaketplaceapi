@@ -39,6 +39,7 @@ class SmtpEmailServiceTest {
     void setUp() {
         smtpEmailService = new SmtpEmailService(
                 javaMailSender,
+                true,
                 MAIL_HOST,
                 MAIL_PORT,
                 MAIL_USERNAME,
@@ -91,6 +92,23 @@ class SmtpEmailServiceTest {
 
         // Verify no emojis are in the raw content
         assertFalse(rawContent.matches(".*[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]+.*"));
+    }
+
+    @Test
+    void sendPasswordResetEmail_whenEmailDisabled_shouldSkipSending() {
+        SmtpEmailService disabledService = new SmtpEmailService(
+                javaMailSender,
+                false,
+                MAIL_HOST,
+                MAIL_PORT,
+                MAIL_USERNAME,
+                MAIL_PASSWORD,
+                MAIL_FROM
+        );
+
+        disabledService.sendPasswordResetEmail("customer@example.com", "https://frontend.com/reset");
+
+        verify(javaMailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test
@@ -156,6 +174,7 @@ class SmtpEmailServiceTest {
     void sendPasswordResetEmail_whenJavaMailSenderIsNull_shouldLogAndNotThrow() {
         SmtpEmailService serviceWithoutSender = new SmtpEmailService(
                 null,
+                true,
                 MAIL_HOST,
                 MAIL_PORT,
                 MAIL_USERNAME,
@@ -177,6 +196,7 @@ class SmtpEmailServiceTest {
     void validateAndLogDiagnostics_withMissingCredentials_shouldLogWarningAndNotThrow() {
         SmtpEmailService serviceMissingCreds = new SmtpEmailService(
                 javaMailSender,
+                true,
                 MAIL_HOST,
                 587,
                 "",

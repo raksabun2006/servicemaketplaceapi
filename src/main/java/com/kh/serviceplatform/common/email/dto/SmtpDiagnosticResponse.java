@@ -3,6 +3,7 @@ package com.kh.serviceplatform.common.email.dto;
 import java.util.List;
 
 public record SmtpDiagnosticResponse(
+        boolean emailEnabled,
         String host,
         int port,
         String username,

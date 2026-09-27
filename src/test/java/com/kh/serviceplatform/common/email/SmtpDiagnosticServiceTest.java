@@ -13,6 +13,7 @@ class SmtpDiagnosticServiceTest {
     @BeforeEach
     void setUp() {
         diagnosticService = new SmtpDiagnosticService(
+                true,
                 "smtp.gmail.com",
                 587,
                 "user@example.com",
@@ -26,6 +27,7 @@ class SmtpDiagnosticServiceTest {
         SmtpDiagnosticResponse response = diagnosticService.testConnectivity("non-existent-domain-xyz-12345.com", 587);
 
         assertNotNull(response);
+        assertTrue(response.emailEnabled());
         assertEquals("non-existent-domain-xyz-12345.com", response.host());
         assertEquals(587, response.port());
         assertFalse(response.dnsSuccess());
@@ -40,8 +42,8 @@ class SmtpDiagnosticServiceTest {
         SmtpDiagnosticResponse response = diagnosticService.testConnectivity("localhost", 9999);
 
         assertNotNull(response);
+        assertTrue(response.emailEnabled());
         assertTrue(response.passwordConfigured());
         assertEquals("user@example.com", response.username());
-        // Verify response record has no password field
     }
 }

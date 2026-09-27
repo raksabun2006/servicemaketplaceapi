@@ -16,6 +16,7 @@ import java.util.List;
 @Service
 public class SmtpDiagnosticService {
 
+    private final boolean emailEnabled;
     private final String mailHost;
     private final int mailPort;
     private final String mailUsername;
@@ -23,12 +24,14 @@ public class SmtpDiagnosticService {
     private final String mailFrom;
 
     public SmtpDiagnosticService(
+            @Value("${app.mail.enabled:true}") boolean emailEnabled,
             @Value("${spring.mail.host:smtp.gmail.com}") String mailHost,
             @Value("${spring.mail.port:587}") int mailPort,
             @Value("${spring.mail.username:}") String mailUsername,
             @Value("${spring.mail.password:}") String mailPassword,
             @Value("${app.mail.from:${spring.mail.username:}}") String mailFrom
     ) {
+        this.emailEnabled = emailEnabled;
         this.mailHost = (mailHost != null && !mailHost.isBlank()) ? mailHost.trim() : "smtp.gmail.com";
         this.mailPort = mailPort > 0 ? mailPort : 587;
         this.mailUsername = mailUsername != null ? mailUsername.trim() : "";
@@ -94,6 +97,7 @@ public class SmtpDiagnosticService {
                 targetHost, targetPort, dnsSuccess ? "OK" : "FAIL", tcpSuccess ? "OK" : "FAIL", tcpElapsedMs);
 
         return new SmtpDiagnosticResponse(
+                emailEnabled,
                 targetHost,
                 targetPort,
                 mailUsername,

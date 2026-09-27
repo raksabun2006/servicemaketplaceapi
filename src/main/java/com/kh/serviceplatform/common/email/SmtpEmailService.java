@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 public class SmtpEmailService implements EmailService {
 
     private final JavaMailSender javaMailSender;
+    private final boolean emailEnabled;
     private final String mailHost;
     private final int mailPort;
     private final String mailUsername;
@@ -30,6 +31,7 @@ public class SmtpEmailService implements EmailService {
 
     public SmtpEmailService(
             @Autowired(required = false) JavaMailSender javaMailSender,
+            @Value("${app.mail.enabled:true}") boolean emailEnabled,
             @Value("${spring.mail.host:smtp.gmail.com}") String mailHost,
             @Value("${spring.mail.port:587}") int mailPort,
             @Value("${spring.mail.username:}") String mailUsername,
@@ -37,6 +39,7 @@ public class SmtpEmailService implements EmailService {
             @Value("${app.mail.from:${spring.mail.username:}}") String mailFrom
     ) {
         this.javaMailSender = javaMailSender;
+        this.emailEnabled = emailEnabled;
         this.mailHost = (mailHost != null && !mailHost.isBlank()) ? mailHost.trim() : "smtp.gmail.com";
         this.mailPort = mailPort > 0 ? mailPort : 587;
         this.mailUsername = mailUsername != null ? mailUsername.trim() : "";
@@ -47,8 +50,13 @@ public class SmtpEmailService implements EmailService {
     @PostConstruct
     public void validateAndLogDiagnostics() {
         log.info("Email provider: Gmail SMTP");
-        log.info("Resolved SMTP Config: host={}, port={}, username={}, from={}, passwordConfigured={}, starttls=true, auth=true",
-                mailHost, mailPort, mailUsername, mailFrom, !mailPassword.isBlank());
+        log.info("Resolved SMTP Config: enabled={}, host={}, port={}, username={}, from={}, passwordConfigured={}, starttls=true, auth=true",
+                emailEnabled, mailHost, mailPort, mailUsername, mailFrom, !mailPassword.isBlank());
+
+        if (!emailEnabled) {
+            log.info("Email delivery is currently DISABLED via configuration (EMAIL_ENABLED=false)");
+            return;
+        }
 
         if (mailUsername.isBlank() || mailPassword.isBlank()) {
             log.warn("SMTP configuration warning: MAIL_USERNAME or MAIL_PASSWORD is not configured. " +
@@ -67,6 +75,11 @@ public class SmtpEmailService implements EmailService {
     @Override
     @Async
     public void sendPasswordResetEmail(String recipient, String recipientName, String resetUrl, int expirationMinutes) {
+        if (!emailEnabled) {
+            log.info("Email delivery is disabled (EMAIL_ENABLED=false). Skipping password reset email dispatch for: {}", recipient);
+            return;
+        }
+
         if (recipient == null || recipient.isBlank()) {
             log.warn("Cannot send password reset email: recipient address is null or empty");
             return;
