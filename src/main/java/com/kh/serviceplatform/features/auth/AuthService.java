@@ -1,13 +1,13 @@
 package com.kh.serviceplatform.features.auth;
 
-import com.kh.serviceplatform.features.auth.dto.AuthResponse;
-import com.kh.serviceplatform.features.auth.dto.GoogleLoginRequest;
-import com.kh.serviceplatform.features.auth.dto.LoginRequest;
-import com.kh.serviceplatform.features.auth.dto.RegisterRequest;
+import com.kh.serviceplatform.common.response.MessageResponse;
+import com.kh.serviceplatform.features.auth.dto.*;
 
 public interface AuthService {
 
     AuthResponse register(RegisterRequest request);
     AuthResponse loginWithGoogle(GoogleLoginRequest request);
     AuthResponse login(LoginRequest request);
+    MessageResponse forgotPassword(ForgotPasswordRequest request);
+    MessageResponse resetPassword(ResetPasswordRequest request);
 }

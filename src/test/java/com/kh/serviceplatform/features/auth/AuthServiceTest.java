@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.features.auth;
 
+import com.kh.serviceplatform.common.email.EmailService;
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
 import com.kh.serviceplatform.common.security.JwtService;
@@ -55,6 +56,12 @@ class AuthServiceTest {
 
     @Mock
     private UserMapper mapper;
+
+    @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private AuthServiceImpl authService;
