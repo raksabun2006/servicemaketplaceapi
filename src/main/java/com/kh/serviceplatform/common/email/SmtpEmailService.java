@@ -1,6 +1,5 @@
 package com.kh.serviceplatform.common.email;
 
-import com.kh.serviceplatform.common.exception.EmailDeliveryException;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -15,6 +14,8 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
 @Slf4j
@@ -77,8 +78,8 @@ public class SmtpEmailService implements EmailService {
         log.info("Dispatching password reset email to: {}", recipient);
 
         if (javaMailSender == null) {
-            log.error("Password reset email delivery failed: JavaMailSender bean is not available");
-            throw new EmailDeliveryException("JavaMailSender is not configured");
+            log.error("Password reset email delivery failed for recipient {}: JavaMailSender bean is not available", recipient);
+            return;
         }
 
         String displayName = (recipientName != null && !recipientName.isBlank()) ? recipientName.trim() : "there";
@@ -97,51 +98,119 @@ public class SmtpEmailService implements EmailService {
             javaMailSender.send(message);
             log.info("Password reset email sent successfully to: {}", recipient);
         } catch (MailAuthenticationException ex) {
-            log.error("Password reset email delivery failed for recipient {}: [Reason: SMTP authentication failure] Check MAIL_USERNAME and Google App Password", recipient);
-            throw new EmailDeliveryException("SMTP authentication failed", ex);
+            log.error("Password reset email delivery failed for recipient {}: SMTP authentication failure", recipient);
         } catch (MailSendException ex) {
-            String category = classifyMailSendException(ex);
-            log.error("Password reset email delivery failed for recipient {}: [Reason: SMTP {}] {}", recipient, category, ex.getMessage());
-            throw new EmailDeliveryException("SMTP send failed: " + category, ex);
+            if (isConnectionTimeout(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP connection timeout", recipient);
+            } else if (isAuthenticationFailure(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP authentication failure", recipient);
+            } else if (isConnectionFailure(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP connection failure", recipient);
+            } else {
+                log.error("Password reset email delivery failed for recipient {}: other mail failure", recipient);
+            }
         } catch (MailException ex) {
-            log.error("Password reset email delivery failed for recipient {}: [Reason: SMTP failure] {}", recipient, ex.getMessage());
-            throw new EmailDeliveryException("SMTP delivery failed", ex);
+            if (isConnectionTimeout(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP connection timeout", recipient);
+            } else if (isAuthenticationFailure(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP authentication failure", recipient);
+            } else if (isConnectionFailure(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP connection failure", recipient);
+            } else {
+                log.error("Password reset email delivery failed for recipient {}: other mail failure", recipient);
+            }
         } catch (MessagingException ex) {
-            log.error("Password reset email delivery failed for recipient {}: [Reason: MIME preparation error] {}", recipient, ex.getMessage());
-            throw new EmailDeliveryException("Failed to prepare MIME email message", ex);
+            log.error("Password reset email delivery failed for recipient {}: SMTP message preparation failure", recipient);
         } catch (Exception ex) {
-            log.error("Password reset email delivery failed for recipient {}: [Reason: Unexpected error] {}", recipient, ex.getMessage());
-            throw new EmailDeliveryException("Unexpected failure sending password reset email", ex);
+            if (isConnectionTimeout(ex)) {
+                log.error("Password reset email delivery failed for recipient {}: SMTP connection timeout", recipient);
+            } else {
+                log.error("Password reset email delivery failed for recipient {}: other mail failure", recipient);
+            }
         }
     }
 
-    private String classifyMailSendException(MailSendException ex) {
-        if (ex.getMessageExceptions() != null) {
-            for (Exception subEx : ex.getMessageExceptions()) {
-                String subName = subEx.getClass().getSimpleName();
-                String subMsg = subEx.getMessage() != null ? subEx.getMessage().toLowerCase() : "";
-                if (subMsg.contains("timed out") || subMsg.contains("timeout") || subName.contains("Timeout")) {
-                    return "timeout (Connect timed out to smtp.gmail.com:587 - verify Railway outbound network connectivity)";
-                }
-                if (subName.contains("Connect") || subMsg.contains("couldn't connect") || subMsg.contains("connection refused")) {
-                    return "connection failure (unable to connect to smtp.gmail.com:587 - check port and network)";
-                }
-                if (subName.contains("Authentication") || subMsg.contains("authenticate") || subMsg.contains("535")) {
-                    return "authentication failure (invalid Google App Password)";
-                }
-                if (subName.contains("SendFailed") || subMsg.contains("invalid addresses") || subMsg.contains("recipient")) {
-                    return "recipient address failure";
+    private boolean isConnectionTimeout(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase();
+                if (lower.contains("timed out") || lower.contains("timeout")) {
+                    return true;
                 }
             }
+            if (current instanceof MailSendException mailSendException) {
+                if (mailSendException.getMessageExceptions() != null) {
+                    for (Exception nested : mailSendException.getMessageExceptions()) {
+                        if (isConnectionTimeout(nested)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            current = current.getCause();
         }
-        String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
-        if (msg.contains("timed out") || msg.contains("timeout")) {
-            return "timeout (Connect timed out to smtp.gmail.com:587)";
+        return false;
+    }
+
+    private boolean isAuthenticationFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof MailAuthenticationException ||
+                    current instanceof jakarta.mail.AuthenticationFailedException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase();
+                if (lower.contains("535") || lower.contains("authentication failed") || lower.contains("username and password not accepted")) {
+                    return true;
+                }
+            }
+            if (current instanceof MailSendException mailSendException) {
+                if (mailSendException.getMessageExceptions() != null) {
+                    for (Exception nested : mailSendException.getMessageExceptions()) {
+                        if (isAuthenticationFailure(nested)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            current = current.getCause();
         }
-        if (msg.contains("connect")) {
-            return "connection failure";
+        return false;
+    }
+
+    private boolean isConnectionFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ConnectException ||
+                    current.getClass().getSimpleName().contains("MailConnectException")) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase();
+                if (lower.contains("couldn't connect") || lower.contains("connection refused")) {
+                    return true;
+                }
+            }
+            if (current instanceof MailSendException mailSendException) {
+                if (mailSendException.getMessageExceptions() != null) {
+                    for (Exception nested : mailSendException.getMessageExceptions()) {
+                        if (isConnectionFailure(nested)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            current = current.getCause();
         }
-        return "delivery failure";
+        return false;
     }
 
     private String buildHtmlContent(String name, String resetUrl, int expirationMinutes) {

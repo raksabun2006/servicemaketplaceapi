@@ -1,6 +1,5 @@
 package com.kh.serviceplatform.common.email;
 
-import com.kh.serviceplatform.common.exception.EmailDeliveryException;
 import jakarta.mail.Address;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -14,6 +13,7 @@ import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.io.ByteArrayOutputStream;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
@@ -116,43 +116,44 @@ class SmtpEmailServiceTest {
     }
 
     @Test
-    void sendPasswordResetEmail_whenSmtpAuthenticationFails_shouldLogAndThrowEmailDeliveryException() {
+    void sendPasswordResetEmail_whenSmtpAuthenticationFails_shouldLogAndNotThrow() {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
         doThrow(new MailAuthenticationException("535 5.7.8 Username and Password not accepted"))
                 .when(javaMailSender).send(any(MimeMessage.class));
 
-        assertThrows(EmailDeliveryException.class, () ->
+        // Must not throw out of async method to prevent SimpleAsyncUncaughtExceptionHandler
+        assertDoesNotThrow(() ->
                 smtpEmailService.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
 
     @Test
-    void sendPasswordResetEmail_whenSmtpConnectionFails_shouldLogAndThrowEmailDeliveryException() {
+    void sendPasswordResetEmail_whenSmtpConnectionFails_shouldLogAndNotThrow() {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
         doThrow(new MailSendException("Couldn't connect to host, port: smtp.gmail.com, 587"))
                 .when(javaMailSender).send(any(MimeMessage.class));
 
-        assertThrows(EmailDeliveryException.class, () ->
+        assertDoesNotThrow(() ->
                 smtpEmailService.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
 
     @Test
-    void sendPasswordResetEmail_whenSmtpTimeoutOccurs_shouldLogAndThrowEmailDeliveryException() {
+    void sendPasswordResetEmail_whenSmtpTimeoutOccurs_shouldLogAndNotThrow() {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
-        doThrow(new MailSendException("Read timed out"))
-                .when(javaMailSender).send(any(MimeMessage.class));
+        MailSendException timeoutEx = new MailSendException("Mail send failed", new SocketTimeoutException("Connect timed out"));
+        doThrow(timeoutEx).when(javaMailSender).send(any(MimeMessage.class));
 
-        assertThrows(EmailDeliveryException.class, () ->
+        assertDoesNotThrow(() ->
                 smtpEmailService.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
 
     @Test
-    void sendPasswordResetEmail_whenJavaMailSenderIsNull_shouldThrowEmailDeliveryException() {
+    void sendPasswordResetEmail_whenJavaMailSenderIsNull_shouldLogAndNotThrow() {
         SmtpEmailService serviceWithoutSender = new SmtpEmailService(
                 null,
                 MAIL_HOST,
@@ -162,7 +163,7 @@ class SmtpEmailServiceTest {
                 MAIL_FROM
         );
 
-        assertThrows(EmailDeliveryException.class, () ->
+        assertDoesNotThrow(() ->
                 serviceWithoutSender.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
