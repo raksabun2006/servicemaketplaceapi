@@ -46,14 +46,15 @@ public class SmtpEmailService implements EmailService {
 
     @PostConstruct
     public void validateAndLogDiagnostics() {
-        log.info("Email provider: Gmail SMTP (host={}, port={}, from configured={})",
-                mailHost, mailPort, !mailFrom.isBlank());
+        log.info("Email provider: Gmail SMTP");
+        log.info("Resolved SMTP Config: host={}, port={}, username={}, from={}, passwordConfigured={}, starttls=true, auth=true",
+                mailHost, mailPort, mailUsername, mailFrom, !mailPassword.isBlank());
 
         if (mailUsername.isBlank() || mailPassword.isBlank()) {
             log.warn("SMTP configuration warning: MAIL_USERNAME or MAIL_PASSWORD is not configured. " +
                     "Outgoing password-reset emails will fail until valid Gmail credentials are provided in environment variables.");
         } else {
-            log.info("SMTP credentials: configured");
+            log.info("SMTP credentials: configured (username and app password present)");
         }
     }
 
