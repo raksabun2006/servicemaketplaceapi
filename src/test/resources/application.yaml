@@ -14,6 +14,24 @@ spring:
   flyway:
     enabled: false
 
+  mail:
+    host: localhost
+    port: 587
+    username: test@example.com
+    password: test-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+        transport:
+          protocol: smtp
+
 security:
   jwt:
     secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
@@ -22,6 +40,9 @@ security:
     issuer: service-platform
 
 app:
+  mail:
+    from: test@example.com
+    provider: smtp
   file:
     storage:
       type: local

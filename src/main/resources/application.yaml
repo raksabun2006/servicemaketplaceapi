@@ -41,6 +41,12 @@ spring:
           auth: true
           starttls:
             enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+        transport:
+          protocol: smtp
 
   servlet:
     multipart:
@@ -70,8 +76,8 @@ app:
   password-reset:
     path: ${PASSWORD_RESET_PATH:/reset-password}
   mail:
-    from: ${MAIL_FROM:Khmer Service <onboarding@resend.dev>}
-    provider: ${MAIL_PROVIDER:auto}
+    from: ${MAIL_FROM:${MAIL_USERNAME:}}
+    provider: ${MAIL_PROVIDER:smtp}
     resend:
       api-key: ${RESEND_API_KEY:}
       api-url: ${RESEND_API_URL:https://api.resend.com/emails}

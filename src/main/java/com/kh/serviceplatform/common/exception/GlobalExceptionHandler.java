@@ -8,6 +8,7 @@ import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mail.MailException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
@@ -132,6 +133,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleResponseStatusException(ResponseStatusException ex, HttpServletRequest request) {
         return ResponseEntity.status(ex.getStatusCode())
                 .body(ApiErrorResponse.of(ex.getStatusCode().value(), ex.getStatusCode().toString(), ex.getReason(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(MailException.class)
+    public ResponseEntity<ApiErrorResponse> handleMailException(MailException ex, HttpServletRequest request) {
+        log.error("Failed to send password reset email", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error", "An error occurred while sending the email. Please try again later.", request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)

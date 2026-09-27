@@ -19,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.MailSendException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
@@ -137,6 +138,18 @@ class PasswordResetServiceTest {
         // Hashing the raw token must produce the stored token_hash
         String computedHash = PasswordResetTokenUtils.hashToken(rawToken);
         assertEquals(savedToken.getTokenHash(), computedHash);
+    }
+
+    @Test
+    void forgotPassword_whenEmailServiceThrowsMailException_shouldPropagateException() {
+        ForgotPasswordRequest request = new ForgotPasswordRequest("dara@example.com");
+
+        when(userRepository.findByEmailIgnoreCase("dara@example.com")).thenReturn(Optional.of(sampleUser));
+        when(passwordResetTokenRepository.findTopByUserOrderByCreatedAtDesc(sampleUser)).thenReturn(Optional.empty());
+        doThrow(new MailSendException("Couldn't connect to host, port: smtp.gmail.com, 587"))
+                .when(emailService).sendPasswordResetEmail(eq("dara@example.com"), anyString(), anyString(), anyInt());
+
+        assertThrows(MailSendException.class, () -> authService.forgotPassword(request));
     }
 
     @Test
