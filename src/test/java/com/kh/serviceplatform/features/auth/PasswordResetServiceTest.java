@@ -141,7 +141,7 @@ class PasswordResetServiceTest {
     }
 
     @Test
-    void forgotPassword_whenEmailServiceThrowsMailException_shouldPropagateException() {
+    void forgotPassword_whenEmailServiceThrowsMailException_shouldCatchAndMaintainGenericResponse() {
         ForgotPasswordRequest request = new ForgotPasswordRequest("dara@example.com");
 
         when(userRepository.findByEmailIgnoreCase("dara@example.com")).thenReturn(Optional.of(sampleUser));
@@ -149,7 +149,10 @@ class PasswordResetServiceTest {
         doThrow(new MailSendException("Couldn't connect to host, port: smtp.gmail.com, 587"))
                 .when(emailService).sendPasswordResetEmail(eq("dara@example.com"), anyString(), anyString(), anyInt());
 
-        assertThrows(MailSendException.class, () -> authService.forgotPassword(request));
+        MessageResponse response = authService.forgotPassword(request);
+
+        assertNotNull(response);
+        assertEquals(GENERIC_MESSAGE, response.message());
     }
 
     @Test

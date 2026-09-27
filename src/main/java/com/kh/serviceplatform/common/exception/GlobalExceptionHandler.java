@@ -135,9 +135,9 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ex.getStatusCode().value(), ex.getStatusCode().toString(), ex.getReason(), request.getRequestURI()));
     }
 
-    @ExceptionHandler(MailException.class)
-    public ResponseEntity<ApiErrorResponse> handleMailException(MailException ex, HttpServletRequest request) {
-        log.error("Failed to send password reset email", ex);
+    @ExceptionHandler({EmailDeliveryException.class, MailException.class})
+    public ResponseEntity<ApiErrorResponse> handleMailException(Exception ex, HttpServletRequest request) {
+        log.error("Failed to send password reset email on path: {}", request.getRequestURI(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Server Error", "An error occurred while sending the email. Please try again later.", request.getRequestURI()));
     }

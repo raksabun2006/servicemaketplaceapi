@@ -1,24 +1,24 @@
 package com.kh.serviceplatform.common.email;
 
+import com.kh.serviceplatform.common.exception.EmailDeliveryException;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "app.mail.provider", havingValue = "smtp", matchIfMissing = true)
 public class SmtpEmailService implements EmailService {
 
     private final JavaMailSender javaMailSender;
@@ -37,8 +37,8 @@ public class SmtpEmailService implements EmailService {
             @Value("${app.mail.from:${spring.mail.username:}}") String mailFrom
     ) {
         this.javaMailSender = javaMailSender;
-        this.mailHost = mailHost != null ? mailHost.trim() : "smtp.gmail.com";
-        this.mailPort = mailPort;
+        this.mailHost = (mailHost != null && !mailHost.isBlank()) ? mailHost.trim() : "smtp.gmail.com";
+        this.mailPort = mailPort > 0 ? mailPort : 587;
         this.mailUsername = mailUsername != null ? mailUsername.trim() : "";
         this.mailPassword = mailPassword != null ? mailPassword.trim() : "";
         this.mailFrom = (mailFrom != null && !mailFrom.isBlank()) ? mailFrom.trim() : this.mailUsername;
@@ -46,34 +46,30 @@ public class SmtpEmailService implements EmailService {
 
     @PostConstruct
     public void validateAndLogDiagnostics() {
-        log.info("Email provider: SMTP");
+        log.info("Email provider: Gmail SMTP");
         log.info("SMTP host: {}", mailHost);
         log.info("SMTP port: {}", mailPort);
         log.info("MAIL_FROM: {}", (!mailFrom.isBlank()) ? "configured" : "NOT CONFIGURED");
 
-        if (mailHost.isBlank()) {
-            throw new IllegalStateException("SMTP host is missing. Configure MAIL_HOST in environment variables.");
-        }
-        if (mailUsername.isBlank()) {
-            throw new IllegalStateException("SMTP username is missing. Configure MAIL_USERNAME in environment variables.");
-        }
-        if (mailPassword.isBlank()) {
-            throw new IllegalStateException("SMTP password is missing. Configure MAIL_PASSWORD in environment variables.");
-        }
-        if (mailFrom.isBlank()) {
-            throw new IllegalStateException("Sender email is missing. Configure MAIL_FROM or MAIL_USERNAME in environment variables.");
+        if (mailUsername.isBlank() || mailPassword.isBlank()) {
+            log.warn("SMTP configuration warning: MAIL_USERNAME or MAIL_PASSWORD is not configured. " +
+                    "Outgoing password-reset emails will fail until valid Gmail credentials are provided in environment variables.");
+        } else {
+            log.info("SMTP credentials: configured (username and app password present)");
         }
     }
 
     @Override
+    @Async
     public void sendPasswordResetEmail(String recipient, String resetUrl) {
         sendPasswordResetEmail(recipient, "User", resetUrl, 15);
     }
 
     @Override
+    @Async
     public void sendPasswordResetEmail(String recipient, String recipientName, String resetUrl, int expirationMinutes) {
         if (recipient == null || recipient.isBlank()) {
-            log.warn("Cannot send password reset email: recipient email is missing");
+            log.warn("Cannot send password reset email: recipient address is null or empty");
             return;
         }
 
@@ -81,8 +77,8 @@ public class SmtpEmailService implements EmailService {
         log.info("Dispatching password reset email to: {}", recipient);
 
         if (javaMailSender == null) {
-            log.error("JavaMailSender is not configured. Unable to send email via SMTP.");
-            throw new IllegalStateException("JavaMailSender bean is not available");
+            log.error("Password reset email delivery failed: JavaMailSender bean is not available");
+            throw new EmailDeliveryException("JavaMailSender is not configured");
         }
 
         String displayName = (recipientName != null && !recipientName.isBlank()) ? recipientName.trim() : "there";
@@ -99,28 +95,23 @@ public class SmtpEmailService implements EmailService {
             helper.setText(htmlContent, true);
 
             javaMailSender.send(message);
-            log.info("Password reset email successfully sent via SMTP to {}", recipient);
+            log.info("Password reset email sent successfully to: {}", recipient);
         } catch (MailAuthenticationException ex) {
-            log.error("SMTP authentication failure while sending password reset email to {}: check MAIL_USERNAME and App Password", recipient);
-            log.error("Failed to send password reset email", ex);
-            throw ex;
+            log.error("Password reset email delivery failed for recipient {}: [Reason: SMTP authentication failure] Check MAIL_USERNAME and Google App Password", recipient);
+            throw new EmailDeliveryException("SMTP authentication failed", ex);
         } catch (MailSendException ex) {
             String category = classifyMailSendException(ex);
-            log.error("SMTP {} while sending password reset email to {}: {}", category, recipient, ex.getMessage());
-            log.error("Failed to send password reset email", ex);
-            throw ex;
+            log.error("Password reset email delivery failed for recipient {}: [Reason: SMTP {}] {}", recipient, category, ex.getMessage());
+            throw new EmailDeliveryException("SMTP send failed: " + category, ex);
         } catch (MailException ex) {
-            log.error("SMTP failure while sending password reset email to {}: {}", recipient, ex.getMessage());
-            log.error("Failed to send password reset email", ex);
-            throw ex;
+            log.error("Password reset email delivery failed for recipient {}: [Reason: SMTP failure] {}", recipient, ex.getMessage());
+            throw new EmailDeliveryException("SMTP delivery failed", ex);
         } catch (MessagingException ex) {
-            log.error("MIME message preparation failure for recipient {}: {}", recipient, ex.getMessage());
-            log.error("Failed to send password reset email", ex);
-            throw new RuntimeException("Failed to prepare password reset email", ex);
+            log.error("Password reset email delivery failed for recipient {}: [Reason: MIME preparation error] {}", recipient, ex.getMessage());
+            throw new EmailDeliveryException("Failed to prepare MIME email message", ex);
         } catch (Exception ex) {
-            log.error("Unexpected error sending password reset email to {}: {}", recipient, ex.getMessage());
-            log.error("Failed to send password reset email", ex);
-            throw new RuntimeException("Failed to send password reset email", ex);
+            log.error("Password reset email delivery failed for recipient {}: [Reason: Unexpected error] {}", recipient, ex.getMessage());
+            throw new EmailDeliveryException("Unexpected failure sending password reset email", ex);
         }
     }
 
@@ -129,26 +120,26 @@ public class SmtpEmailService implements EmailService {
             for (Exception subEx : ex.getMessageExceptions()) {
                 String subName = subEx.getClass().getSimpleName();
                 String subMsg = subEx.getMessage() != null ? subEx.getMessage().toLowerCase() : "";
+                if (subMsg.contains("timed out") || subMsg.contains("timeout") || subName.contains("Timeout")) {
+                    return "timeout (Connect timed out to smtp.gmail.com:587 - verify Railway outbound network connectivity)";
+                }
                 if (subName.contains("Connect") || subMsg.contains("couldn't connect") || subMsg.contains("connection refused")) {
-                    return "connection failure";
+                    return "connection failure (unable to connect to smtp.gmail.com:587 - check port and network)";
                 }
-                if (subName.contains("Timeout") || subMsg.contains("timed out") || subMsg.contains("timeout")) {
-                    return "timeout";
-                }
-                if (subName.contains("Authentication") || subMsg.contains("authenticate") || subMsg.contains("password")) {
-                    return "authentication failure";
+                if (subName.contains("Authentication") || subMsg.contains("authenticate") || subMsg.contains("535")) {
+                    return "authentication failure (invalid Google App Password)";
                 }
                 if (subName.contains("SendFailed") || subMsg.contains("invalid addresses") || subMsg.contains("recipient")) {
-                    return "recipient failure";
+                    return "recipient address failure";
                 }
             }
         }
         String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
+        if (msg.contains("timed out") || msg.contains("timeout")) {
+            return "timeout (Connect timed out to smtp.gmail.com:587)";
+        }
         if (msg.contains("connect")) {
             return "connection failure";
-        }
-        if (msg.contains("timeout")) {
-            return "timeout";
         }
         return "delivery failure";
     }

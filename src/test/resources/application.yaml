@@ -42,7 +42,6 @@ security:
 app:
   mail:
     from: test@example.com
-    provider: smtp
   file:
     storage:
       type: local

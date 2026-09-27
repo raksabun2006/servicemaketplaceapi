@@ -287,7 +287,11 @@ public class AuthServiceImpl implements AuthService {
         String resetUrl = buildResetUrl(rawToken);
 
         // 8. Dispatch email via EmailService abstraction (never log rawToken or resetUrl)
-        emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetUrl, tokenExpirationMinutes);
+        try {
+            emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), resetUrl, tokenExpirationMinutes);
+        } catch (Exception ex) {
+            log.error("Password reset email delivery failed for user {}: {}", user.getId(), ex.getMessage());
+        }
 
         return MessageResponse.of(GENERIC_FORGOT_PASSWORD_MESSAGE);
     }

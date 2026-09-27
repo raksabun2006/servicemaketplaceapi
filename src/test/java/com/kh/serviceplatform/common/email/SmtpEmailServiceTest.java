@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.common.email;
 
+import com.kh.serviceplatform.common.exception.EmailDeliveryException;
 import jakarta.mail.Address;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -79,6 +80,7 @@ class SmtpEmailServiceTest {
         mimeMessage.writeTo(outputStream);
         String rawContent = outputStream.toString(StandardCharsets.UTF_8);
 
+        assertTrue(rawContent.contains("Khmer Service"));
         assertTrue(rawContent.contains("Password Reset"));
         assertTrue(rawContent.contains("We received a request to reset your password."));
         assertTrue(rawContent.contains("Click the button below to create a new password."));
@@ -114,99 +116,74 @@ class SmtpEmailServiceTest {
     }
 
     @Test
-    void sendPasswordResetEmail_whenSmtpAuthenticationFails_shouldLogAndThrowMailAuthenticationException() {
+    void sendPasswordResetEmail_whenSmtpAuthenticationFails_shouldLogAndThrowEmailDeliveryException() {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
         doThrow(new MailAuthenticationException("535 5.7.8 Username and Password not accepted"))
                 .when(javaMailSender).send(any(MimeMessage.class));
 
-        assertThrows(MailAuthenticationException.class, () ->
+        assertThrows(EmailDeliveryException.class, () ->
                 smtpEmailService.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
 
     @Test
-    void sendPasswordResetEmail_whenSmtpConnectionFails_shouldLogAndThrowMailSendException() {
+    void sendPasswordResetEmail_whenSmtpConnectionFails_shouldLogAndThrowEmailDeliveryException() {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
         doThrow(new MailSendException("Couldn't connect to host, port: smtp.gmail.com, 587"))
                 .when(javaMailSender).send(any(MimeMessage.class));
 
-        assertThrows(MailSendException.class, () ->
+        assertThrows(EmailDeliveryException.class, () ->
                 smtpEmailService.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
 
     @Test
-    void sendPasswordResetEmail_whenSmtpTimeoutOccurs_shouldLogAndThrowMailSendException() {
+    void sendPasswordResetEmail_whenSmtpTimeoutOccurs_shouldLogAndThrowEmailDeliveryException() {
         MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
         when(javaMailSender.createMimeMessage()).thenReturn(mimeMessage);
         doThrow(new MailSendException("Read timed out"))
                 .when(javaMailSender).send(any(MimeMessage.class));
 
-        assertThrows(MailSendException.class, () ->
+        assertThrows(EmailDeliveryException.class, () ->
                 smtpEmailService.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
         );
     }
 
     @Test
-    void validateAndLogDiagnostics_withValidConfiguration_shouldSucceed() {
+    void sendPasswordResetEmail_whenJavaMailSenderIsNull_shouldThrowEmailDeliveryException() {
+        SmtpEmailService serviceWithoutSender = new SmtpEmailService(
+                null,
+                MAIL_HOST,
+                MAIL_PORT,
+                MAIL_USERNAME,
+                MAIL_PASSWORD,
+                MAIL_FROM
+        );
+
+        assertThrows(EmailDeliveryException.class, () ->
+                serviceWithoutSender.sendPasswordResetEmail("customer@example.com", "https://example.com/reset")
+        );
+    }
+
+    @Test
+    void validateAndLogDiagnostics_withValidConfiguration_shouldNotThrow() {
         assertDoesNotThrow(() -> smtpEmailService.validateAndLogDiagnostics());
     }
 
     @Test
-    void validateAndLogDiagnostics_withMissingHost_shouldThrowIllegalStateException() {
-        SmtpEmailService invalidService = new SmtpEmailService(
-                javaMailSender,
-                "",
-                587,
-                MAIL_USERNAME,
-                MAIL_PASSWORD,
-                MAIL_FROM
-        );
-
-        assertThrows(IllegalStateException.class, invalidService::validateAndLogDiagnostics);
-    }
-
-    @Test
-    void validateAndLogDiagnostics_withMissingUsername_shouldThrowIllegalStateException() {
-        SmtpEmailService invalidService = new SmtpEmailService(
+    void validateAndLogDiagnostics_withMissingCredentials_shouldLogWarningAndNotThrow() {
+        SmtpEmailService serviceMissingCreds = new SmtpEmailService(
                 javaMailSender,
                 MAIL_HOST,
                 587,
                 "",
-                MAIL_PASSWORD,
-                MAIL_FROM
-        );
-
-        assertThrows(IllegalStateException.class, invalidService::validateAndLogDiagnostics);
-    }
-
-    @Test
-    void validateAndLogDiagnostics_withMissingPassword_shouldThrowIllegalStateException() {
-        SmtpEmailService invalidService = new SmtpEmailService(
-                javaMailSender,
-                MAIL_HOST,
-                587,
-                MAIL_USERNAME,
                 "",
-                MAIL_FROM
-        );
-
-        assertThrows(IllegalStateException.class, invalidService::validateAndLogDiagnostics);
-    }
-
-    @Test
-    void validateAndLogDiagnostics_withMissingFrom_shouldThrowIllegalStateException() {
-        SmtpEmailService invalidService = new SmtpEmailService(
-                javaMailSender,
-                MAIL_HOST,
-                587,
-                "",
-                MAIL_PASSWORD,
                 ""
         );
 
-        assertThrows(IllegalStateException.class, invalidService::validateAndLogDiagnostics);
+        // Application must stay healthy and not fail startup
+        assertDoesNotThrow(serviceMissingCreds::validateAndLogDiagnostics);
     }
 }
