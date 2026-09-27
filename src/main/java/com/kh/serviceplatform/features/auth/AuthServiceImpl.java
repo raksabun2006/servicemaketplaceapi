@@ -6,10 +6,12 @@ import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
 import com.kh.serviceplatform.common.security.JwtService;
 import com.kh.serviceplatform.common.util.GeoUtils;
 import com.kh.serviceplatform.features.auth.dto.AuthResponse;
+import com.kh.serviceplatform.features.auth.dto.GoogleLoginRequest;
 import com.kh.serviceplatform.features.auth.dto.LoginRequest;
 import com.kh.serviceplatform.features.auth.dto.RegisterRequest;
 import com.kh.serviceplatform.features.auth.enums.UserRole;
 import com.kh.serviceplatform.features.auth.enums.UserStatus;
+import com.kh.serviceplatform.features.auth.google.GoogleAuthService;
 import com.kh.serviceplatform.features.customer.CustomerProfile;
 import com.kh.serviceplatform.features.customer.CustomerProfileRepository;
 import com.kh.serviceplatform.features.file.FileRepository;
@@ -36,7 +38,11 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserMapper mapper;
-
+    private final GoogleAuthService googleAuthService;
+    @Override
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        return googleAuthService.loginWithGoogle(request);
+    }
     @Override
     public AuthResponse register(RegisterRequest request) {
 

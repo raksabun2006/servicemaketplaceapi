@@ -1,14 +1,11 @@
 package com.kh.serviceplatform.features.auth;
 
+import com.kh.serviceplatform.features.auth.enums.AuthProvider;
 import com.kh.serviceplatform.features.auth.enums.UserRole;
 import com.kh.serviceplatform.features.auth.enums.UserStatus;
 import com.kh.serviceplatform.features.file.StoredFile;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -56,6 +53,14 @@ public class User {
 
     @Column(nullable = false)
     private boolean phoneVerified;
+
+    @Column(name = "google_subject", unique = true)
+    private String googleSubject;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider")
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
 
     private Instant lastLoginAt;
 

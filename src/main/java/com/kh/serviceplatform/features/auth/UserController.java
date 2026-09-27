@@ -1,6 +1,7 @@
 package com.kh.serviceplatform.features.auth;
 
 import com.kh.serviceplatform.features.auth.dto.AuthResponse;
+import com.kh.serviceplatform.features.auth.dto.GoogleLoginRequest;
 import com.kh.serviceplatform.features.auth.dto.LoginRequest;
 import com.kh.serviceplatform.features.auth.dto.RegisterRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,5 +30,11 @@ public class UserController {
     @Operation(summary = "Authenticate user and receive JWT access/refresh tokens")
     public AuthResponse login(@Valid @RequestBody LoginRequest loginRequest) {
         return authService.login(loginRequest);
+    }
+
+    @PostMapping({"/google", "/google-login"})
+    @Operation(summary = "Authenticate user via Google ID token and receive JWT access/refresh tokens")
+    public AuthResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return authService.loginWithGoogle(request);
     }
 }
