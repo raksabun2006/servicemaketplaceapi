@@ -26,6 +26,14 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ChatRadiusExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleChatRadiusExceededException(ChatRadiusExceededException ex, HttpServletRequest request) {
+        log.warn("ChatRadiusExceededException: {} (distance: {} km, allowed: {} km) on path: {}",
+                ex.getReason(), ex.getDistanceKm(), ex.getAllowedRadiusKm(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiErrorResponse.of(HttpStatus.BAD_REQUEST.value(), "Bad Request", ex.getReason(), request.getRequestURI(), ex.getDistanceKm(), ex.getAllowedRadiusKm()));
+    }
+
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiErrorResponse> handleBadRequestException(BadRequestException ex, HttpServletRequest request) {
         log.warn("BadRequestException: {} on path: {}", ex.getReason(), request.getRequestURI());

@@ -8,6 +8,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "${PORT:-8080}:8080"
     environment:
@@ -17,6 +19,10 @@ services:
       DB_NAME: ${POSTGRES_DB:-service_marketplace}
       DB_USERNAME: ${POSTGRES_USER:-service_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-qwerqwer}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_SSL: ${REDIS_SSL:-false}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       FRONTEND_URL: ${FRONTEND_URL:-https://servicemaketplacefront.vercel.app}
       FILE_STORAGE_PATH: /uploads
@@ -45,6 +51,17 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: service-marketplace-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - service_marketplace_redis_data:/data
+    command: redis-server --appendonly yes
+
 volumes:
   service_marketplace_postgres_data:
   service_marketplace_uploads:
+  service_marketplace_redis_data:

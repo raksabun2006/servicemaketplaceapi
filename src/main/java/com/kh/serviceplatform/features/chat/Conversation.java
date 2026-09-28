@@ -62,6 +62,9 @@ public class Conversation {
     @Column(name = "last_message_at")
     private Instant lastMessageAt;
 
+    @Column(name = "distance_km")
+    private Double distanceKm;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

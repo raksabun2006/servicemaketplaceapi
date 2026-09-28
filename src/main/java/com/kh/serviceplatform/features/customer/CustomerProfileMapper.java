@@ -28,6 +28,8 @@ public class CustomerProfileMapper {
                 profile.getDistrict(),
                 profile.getPostalCode(),
                 profile.getNotes(),
+                profile.getLatitude(),
+                profile.getLongitude(),
                 profile.getCreatedAt(),
                 profile.getUpdatedAt()
         );

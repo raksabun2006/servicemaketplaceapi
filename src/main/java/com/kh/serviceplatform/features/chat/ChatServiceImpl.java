@@ -1,8 +1,10 @@
 package com.kh.serviceplatform.features.chat;
 
 import com.kh.serviceplatform.common.exception.BadRequestException;
+import com.kh.serviceplatform.common.exception.ChatRadiusExceededException;
 import com.kh.serviceplatform.common.exception.ForbiddenException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
+import com.kh.serviceplatform.common.util.GeoUtils;
 import com.kh.serviceplatform.features.auth.User;
 import com.kh.serviceplatform.features.auth.UserRepository;
 import com.kh.serviceplatform.features.booking.Booking;
@@ -11,14 +13,20 @@ import com.kh.serviceplatform.features.chat.dto.ChatMessageResponse;
 import com.kh.serviceplatform.features.chat.dto.ConversationResponse;
 import com.kh.serviceplatform.features.chat.dto.CreateConversationRequest;
 import com.kh.serviceplatform.features.chat.dto.SendMessageRequest;
+import com.kh.serviceplatform.features.customer.CustomerProfile;
+import com.kh.serviceplatform.features.customer.CustomerProfileRepository;
 import com.kh.serviceplatform.features.notification.NotificationService;
 import com.kh.serviceplatform.features.notification.enums.NotificationType;
 import com.kh.serviceplatform.features.provider.ProviderProfile;
 import com.kh.serviceplatform.features.provider.ProviderProfileRepository;
+import com.kh.serviceplatform.features.provider.application.ProviderApplication;
+import com.kh.serviceplatform.features.provider.application.ProviderApplicationRepository;
 import com.kh.serviceplatform.features.servicerequest.ServiceRequest;
 import com.kh.serviceplatform.features.servicerequest.ServiceRequestRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,10 +48,16 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final ProviderProfileRepository providerProfileRepository;
+    private final ProviderApplicationRepository providerApplicationRepository;
+    private final CustomerProfileRepository customerProfileRepository;
     private final ServiceRequestRepository serviceRequestRepository;
     private final BookingRepository bookingRepository;
     private final NotificationService notificationService;
     private final ChatMapper chatMapper;
+
+    @Setter
+    @Value("${app.chat.radius-km:10}")
+    private double chatRadiusKm = 10.0;
 
     @Override
     public ConversationResponse createOrGetConversation(UUID currentUserId, CreateConversationRequest request) {
@@ -84,13 +98,90 @@ public class ChatServiceImpl implements ChatService {
         if (existingOpt.isPresent()) {
             conversation = existingOpt.get();
         } else {
+            // Geographic Radius Validation for NEW conversation
+            Double customerLat = request.latitude();
+            Double customerLon = request.longitude();
+
+            if (customerLat == null || customerLon == null) {
+                CustomerProfile customerProfile = customerProfileRepository.findByUserId(currentUserId).orElse(null);
+                if (customerProfile != null) {
+                    if (customerLat == null) {
+                        customerLat = customerProfile.getLatitude();
+                    }
+                    if (customerLon == null) {
+                        customerLon = customerProfile.getLongitude();
+                    }
+                }
+            }
+
+            if ((customerLat == null || customerLon == null) && serviceRequest != null) {
+                if (customerLat == null) {
+                    customerLat = serviceRequest.getLatitude();
+                }
+                if (customerLon == null) {
+                    customerLon = serviceRequest.getLongitude();
+                }
+            }
+
+            if (customerLat == null || customerLon == null) {
+                throw new BadRequestException("Your location is required before starting a conversation.");
+            }
+            if (customerLat < -90.0 || customerLat > 90.0) {
+                throw new BadRequestException("Latitude must be between -90 and 90 degrees");
+            }
+            if (customerLon < -180.0 || customerLon > 180.0) {
+                throw new BadRequestException("Longitude must be between -180 and 180 degrees");
+            }
+
+            Double providerLat = provider.getLatitude();
+            Double providerLon = provider.getLongitude();
+
+            if ((providerLat == null || providerLon == null) && provider.getUser() != null) {
+                ProviderApplication application = providerApplicationRepository
+                        .findTopByUserIdOrderByCreatedAtDesc(provider.getUser().getId())
+                        .orElse(null);
+                if (application != null) {
+                    if (providerLat == null) {
+                        providerLat = application.getLatitude();
+                    }
+                    if (providerLon == null) {
+                        providerLon = application.getLongitude();
+                    }
+                }
+            }
+
+            if (providerLat == null || providerLon == null) {
+                throw new BadRequestException("Provider location is not available.");
+            }
+            if (providerLat < -90.0 || providerLat > 90.0) {
+                throw new BadRequestException("Latitude must be between -90 and 90 degrees");
+            }
+            if (providerLon < -180.0 || providerLon > 180.0) {
+                throw new BadRequestException("Longitude must be between -180 and 180 degrees");
+            }
+
+            double distanceKm = GeoUtils.calculateDistanceKm(customerLat, customerLon, providerLat, providerLon, 2);
+
+            if (distanceKm > chatRadiusKm) {
+                throw new ChatRadiusExceededException(distanceKm, chatRadiusKm);
+            }
+
             conversation = Conversation.builder()
                     .customer(currentUser)
                     .provider(provider)
                     .serviceRequest(serviceRequest)
                     .booking(booking)
+                    .distanceKm(distanceKm)
                     .build();
             conversation = conversationRepository.save(conversation);
+
+            if (request.latitude() != null && request.longitude() != null) {
+                customerProfileRepository.findByUserId(currentUserId).ifPresent(profile -> {
+                    profile.setLatitude(request.latitude());
+                    profile.setLongitude(request.longitude());
+                    customerProfileRepository.save(profile);
+                });
+            }
         }
 
         if (request.initialMessage() != null && !request.initialMessage().isBlank()) {

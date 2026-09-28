@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.features.category;
 
+import com.kh.serviceplatform.common.cache.CacheNames;
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
 import com.kh.serviceplatform.features.category.dto.CategoryResponse;
@@ -10,6 +11,8 @@ import com.kh.serviceplatform.features.file.StoredFile;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +40,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.SERVICE_CATEGORIES, key = "'all'")
     public List<CategoryResponse> getActiveCategories() {
         return categoryRepository.findAllByIsActiveTrueOrderByDisplayOrderAscNameAsc()
                 .stream()
@@ -91,6 +95,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @CacheEvict(value = CacheNames.SERVICE_CATEGORIES, allEntries = true)
     public CategoryResponse createCategory(CreateCategoryRequest request) {
         String trimmedName = request.name().trim();
         if (categoryRepository.existsByNameIgnoreCase(trimmedName)) {
@@ -126,6 +131,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @CacheEvict(value = CacheNames.SERVICE_CATEGORIES, allEntries = true)
     public CategoryResponse updateCategory(UUID id, UpdateCategoryRequest request) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + id));
@@ -170,6 +176,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @CacheEvict(value = CacheNames.SERVICE_CATEGORIES, allEntries = true)
     public void deleteCategory(UUID id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + id));
@@ -179,6 +186,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @CacheEvict(value = CacheNames.SERVICE_CATEGORIES, allEntries = true)
     public CategoryResponse toggleCategoryStatus(UUID id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + id));

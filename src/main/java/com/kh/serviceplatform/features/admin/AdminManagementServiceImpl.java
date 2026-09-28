@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.features.admin;
 
+import com.kh.serviceplatform.common.cache.CacheNames;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
 import com.kh.serviceplatform.features.admin.dto.AdminAnalyticsResponse;
 import com.kh.serviceplatform.features.admin.dto.AdminDashboardResponse;
@@ -28,6 +29,8 @@ import com.kh.serviceplatform.features.servicerequest.enums.ServiceRequestStatus
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -143,6 +146,10 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PROVIDER_PROFILES, key = "#providerId"),
+            @CacheEvict(value = CacheNames.PROVIDER_SEARCH, allEntries = true)
+    })
     public ProviderProfileResponse approveProvider(UUID providerId, ProviderReviewActionRequest request) {
         ProviderProfile profile = providerProfileRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider profile not found with ID: " + providerId));
@@ -175,6 +182,10 @@ public class AdminManagementServiceImpl implements AdminManagementService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PROVIDER_PROFILES, key = "#providerId"),
+            @CacheEvict(value = CacheNames.PROVIDER_SEARCH, allEntries = true)
+    })
     public ProviderProfileResponse rejectProvider(UUID providerId, ProviderReviewActionRequest request) {
         ProviderProfile profile = providerProfileRepository.findById(providerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider profile not found with ID: " + providerId));

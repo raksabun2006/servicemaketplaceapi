@@ -12,13 +12,19 @@ public record ApiErrorResponse(
         String error,
         String message,
         String path,
-        Map<String, String> validationErrors
+        Map<String, String> validationErrors,
+        Double distanceKm,
+        Double allowedRadiusKm
 ) {
     public static ApiErrorResponse of(int status, String error, String message, String path) {
-        return new ApiErrorResponse(Instant.now(), status, error, message, path, null);
+        return new ApiErrorResponse(Instant.now(), status, error, message, path, null, null, null);
     }
 
     public static ApiErrorResponse of(int status, String error, String message, String path, Map<String, String> validationErrors) {
-        return new ApiErrorResponse(Instant.now(), status, error, message, path, validationErrors);
+        return new ApiErrorResponse(Instant.now(), status, error, message, path, validationErrors, null, null);
+    }
+
+    public static ApiErrorResponse of(int status, String error, String message, String path, Double distanceKm, Double allowedRadiusKm) {
+        return new ApiErrorResponse(Instant.now(), status, error, message, path, null, distanceKm, allowedRadiusKm);
     }
 }

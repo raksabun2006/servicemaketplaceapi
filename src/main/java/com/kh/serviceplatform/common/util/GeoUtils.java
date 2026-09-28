@@ -28,6 +28,10 @@ public final class GeoUtils {
     }
 
     public static double calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+        return calculateDistanceKm(lat1, lon1, lat2, lon2, 1);
+    }
+
+    public static double calculateDistanceKm(double lat1, double lon1, double lat2, double lon2, int decimalPlaces) {
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
 
@@ -39,6 +43,7 @@ public final class GeoUtils {
         double c = 2.0 * Math.atan2(Math.sqrt(a), Math.sqrt(1.0 - a));
 
         double distance = EARTH_RADIUS_KM * c;
-        return Math.round(distance * 10.0) / 10.0;
+        double factor = Math.pow(10, decimalPlaces);
+        return Math.round(distance * factor) / factor;
     }
 }

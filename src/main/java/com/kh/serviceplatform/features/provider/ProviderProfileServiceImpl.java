@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.features.provider;
 
+import com.kh.serviceplatform.common.cache.CacheNames;
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ForbiddenException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
@@ -21,6 +22,9 @@ import com.kh.serviceplatform.features.servicerequest.enums.ServiceOfferStatus;
 import com.kh.serviceplatform.features.servicerequest.enums.ServiceRequestStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +64,7 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.PROVIDER_PROFILES, key = "#id")
     public ProviderProfileResponse getProfileById(UUID id) {
         ProviderProfile profile = providerProfileRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider profile not found with ID: " + id));
@@ -68,6 +73,7 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
     }
 
     @Override
+    @CacheEvict(value = CacheNames.PROVIDER_SEARCH, allEntries = true)
     public ProviderProfileResponse createProfile(UUID userId, CreateProviderProfileRequest request) {
         if (providerProfileRepository.existsByUserId(userId)) {
             throw new BadRequestException("Provider profile already exists for this user");
@@ -98,6 +104,10 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PROVIDER_PROFILES, key = "#result.id()", condition = "#result != null"),
+            @CacheEvict(value = CacheNames.PROVIDER_SEARCH, allEntries = true)
+    })
     public ProviderProfileResponse updateProfile(UUID userId, UpdateProviderProfileRequest request) {
         ProviderProfile profile = providerProfileRepository.findByUserId(userId)
                 .orElseGet(() -> createDefaultProfile(userId));
@@ -197,6 +207,10 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PROVIDER_PROFILES, key = "#result.id()", condition = "#result != null"),
+            @CacheEvict(value = CacheNames.PROVIDER_SEARCH, allEntries = true)
+    })
     public ProviderProfileResponse updateAvailability(UUID userId, UpdateAvailabilityRequest request) {
         ProviderProfile profile = providerProfileRepository.findByUserId(userId)
                 .orElseGet(() -> createDefaultProfile(userId));
@@ -225,6 +239,10 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PROVIDER_PROFILES, key = "#result.id()", condition = "#result != null"),
+            @CacheEvict(value = CacheNames.PROVIDER_SEARCH, allEntries = true)
+    })
     public ProviderProfileResponse submitVerification(UUID userId, ProviderVerificationRequest request) {
         ProviderProfile profile = providerProfileRepository.findByUserId(userId)
                 .orElseGet(() -> createDefaultProfile(userId));
@@ -244,6 +262,11 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = CacheNames.PROVIDER_SEARCH,
+            key = "T(java.lang.String).format('available:%s:%d:%d:%s', " +
+                  "#availableNow, #pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+    )
     public Page<ProviderProfileResponse> getAvailableProviders(Boolean availableNow, Pageable pageable) {
         Pageable safePageable = sanitizePageable(pageable);
 
@@ -258,6 +281,12 @@ public class ProviderProfileServiceImpl implements ProviderProfileService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = CacheNames.PROVIDER_SEARCH,
+            key = "T(java.lang.String).format('nearby:%s:%s:%s:%d:%d:%s', " +
+                  "#latitude, #longitude, #radiusKm, " +
+                  "#pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+    )
     public Page<NearbyProviderResponse> getNearbyProviders(Double latitude, Double longitude, Double radiusKm, Pageable pageable) {
         GeoUtils.validateCoordinates(latitude, longitude);
         double maxRadius = radiusKm != null ? radiusKm : 10.0;

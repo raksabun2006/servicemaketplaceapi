@@ -2,6 +2,7 @@ package com.kh.serviceplatform.features.customer;
 
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
+import com.kh.serviceplatform.common.util.GeoUtils;
 import com.kh.serviceplatform.features.auth.User;
 import com.kh.serviceplatform.features.auth.UserRepository;
 import com.kh.serviceplatform.features.booking.BookingRepository;
@@ -109,6 +110,15 @@ public class CustomerProfileServiceImpl implements CustomerProfileService {
         }
         if (request.notes() != null) {
             profile.setNotes(request.notes().trim());
+        }
+        if (request.latitude() != null || request.longitude() != null) {
+            Double lat = request.latitude() != null ? request.latitude() : profile.getLatitude();
+            Double lon = request.longitude() != null ? request.longitude() : profile.getLongitude();
+            if (lat != null && lon != null) {
+                GeoUtils.validateCoordinates(lat, lon);
+            }
+            profile.setLatitude(request.latitude());
+            profile.setLongitude(request.longitude());
         }
 
         CustomerProfile saved = customerProfileRepository.save(profile);

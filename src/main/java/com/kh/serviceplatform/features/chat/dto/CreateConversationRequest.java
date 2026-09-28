@@ -18,6 +18,15 @@ public record CreateConversationRequest(
         UUID bookingId,
 
         @Schema(description = "Initial message content to send immediately", example = "Hello, are you available tomorrow?")
-        String initialMessage
+        String initialMessage,
+
+        @Schema(description = "Customer latitude coordinate", example = "11.5300")
+        Double latitude,
+
+        @Schema(description = "Customer longitude coordinate", example = "104.9000")
+        Double longitude
 ) {
+    public CreateConversationRequest(UUID providerId, UUID serviceRequestId, UUID bookingId, String initialMessage) {
+        this(providerId, serviceRequestId, bookingId, initialMessage, null, null);
+    }
 }

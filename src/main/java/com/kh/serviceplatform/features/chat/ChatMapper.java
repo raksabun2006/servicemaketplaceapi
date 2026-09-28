@@ -35,6 +35,7 @@ public class ChatMapper {
                 conversation.getLastMessagePreview(),
                 conversation.getLastMessageAt(),
                 unreadCount,
+                conversation.getDistanceKm(),
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt()
         );

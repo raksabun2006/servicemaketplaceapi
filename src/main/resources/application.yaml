@@ -2,6 +2,9 @@ server:
   port: ${PORT:8080}
   forward-headers-strategy: framework
 spring:
+  cache:
+    type: ${SPRING_CACHE_TYPE:redis}
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${PGHOST:${DB_HOST:localhost}}:${PGPORT:${DB_PORT:5432}}/${PGDATABASE:${DB_NAME:serviceplatform}}}
     username: ${SPRING_DATASOURCE_USERNAME:${PGUSER:${DB_USERNAME:postgres}}}
@@ -12,6 +15,15 @@ spring:
     web:
       pageable:
         serialization-mode: via-dto
+    redis:
+      host: ${REDIS_HOST:${REDISHOST:localhost}}
+      port: ${REDIS_PORT:${REDISPORT:6379}}
+      username: ${REDIS_USERNAME:${REDISUSER:}}
+      password: ${REDIS_PASSWORD:${REDISPASSWORD:}}
+      connect-timeout: 2s
+      timeout: 2s
+      ssl:
+        enabled: ${REDIS_SSL:false}
 
   jpa:
     database: postgresql
@@ -84,3 +96,12 @@ app:
     storage:
       type: ${FILE_STORAGE_TYPE:local}
       base-path: ${FILE_STORAGE_PATH:/uploads}
+  chat:
+    radius-km: ${CHAT_RADIUS_KM:10}
+  cache:
+    default-ttl-seconds: ${CACHE_DEFAULT_TTL_SECONDS:600}
+    service-categories-ttl-seconds: ${CACHE_SERVICE_CATEGORIES_TTL_SECONDS:3600}
+    provider-profiles-ttl-seconds: ${CACHE_PROVIDER_PROFILES_TTL_SECONDS:900}
+    service-requests-ttl-seconds: ${CACHE_SERVICE_REQUESTS_TTL_SECONDS:300}
+    provider-search-ttl-seconds: ${CACHE_PROVIDER_SEARCH_TTL_SECONDS:120}
+    public-services-ttl-seconds: ${CACHE_PUBLIC_SERVICES_TTL_SECONDS:300}

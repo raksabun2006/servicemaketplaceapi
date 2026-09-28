@@ -47,6 +47,12 @@ public class CustomerProfile {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @CreationTimestamp
     private Instant createdAt;
 

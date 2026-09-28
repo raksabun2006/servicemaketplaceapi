@@ -27,6 +27,27 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleChatRadiusExceededException_shouldReturn400WithDistanceAndAllowedRadius() {
+        when(request.getRequestURI()).thenReturn("/api/v1/conversations");
+
+        ChatRadiusExceededException ex = new ChatRadiusExceededException(15.42, 10.0);
+
+        ResponseEntity<ApiErrorResponse> response = exceptionHandler.handleChatRadiusExceededException(ex, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+
+        ApiErrorResponse body = response.getBody();
+        assertNotNull(body);
+        assertEquals(400, body.status());
+        assertEquals("Bad Request", body.error());
+        assertEquals("/api/v1/conversations", body.path());
+        assertEquals("This provider is outside the allowed chat distance.", body.message());
+        assertEquals(15.42, body.distanceKm());
+        assertEquals(10.0, body.allowedRadiusKm());
+    }
+
+    @Test
     void handleMailException_shouldReturnGeneric500ResponseWithoutLeakingSmtpDetails() {
         when(request.getRequestURI()).thenReturn("/api/v1/auth/forgot-password");
 

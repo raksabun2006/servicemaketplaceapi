@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.features.servicerequest;
 
+import com.kh.serviceplatform.common.cache.CacheNames;
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ForbiddenException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
@@ -25,6 +26,9 @@ import com.kh.serviceplatform.features.servicerequest.enums.ServiceRequestStatus
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -57,6 +61,7 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     private final ServiceRequestMapper mapper;
 
     @Override
+    @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
     public ServiceRequestResponse createRequest(UUID customerId, ServiceRequestCreateRequest request) {
         User customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found with ID: " + customerId));
@@ -139,6 +144,11 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = CacheNames.SERVICE_REQUESTS,
+            key = "#requestId",
+            condition = "#userId == null"
+    )
     public ServiceRequestResponse getRequestById(UUID userId, UserRole role, UUID requestId) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));
@@ -147,6 +157,10 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, key = "#requestId"),
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
+    })
     public ServiceRequestResponse updateRequest(UUID customerId, UUID requestId, ServiceRequestUpdateRequest update) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));
@@ -218,6 +232,10 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, key = "#requestId"),
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
+    })
     public void deleteRequest(UUID customerId, UUID requestId) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));
@@ -233,6 +251,10 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, key = "#requestId"),
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
+    })
     public ServiceRequestResponse cancelRequest(UUID customerId, UUID requestId, CancelServiceRequestRequest cancelRequest) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));
@@ -263,6 +285,12 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = CacheNames.SERVICE_REQUESTS,
+            key = "T(java.lang.String).format('browse:%s:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d:%s', " +
+                  "#category, #city, #district, #status, #minBudget, #maxBudget, #preferredDate, #urgent, #search, " +
+                  "#pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+    )
     public Page<ServiceRequestSummaryResponse> browseRequests(
             ServiceCategory category,
             String city,
@@ -496,6 +524,10 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, key = "#requestId"),
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
+    })
     public ServiceRequestResponse acceptOffer(UUID customerId, UUID requestId, UUID offerId) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));
@@ -616,6 +648,10 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, key = "#requestId"),
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
+    })
     public ServiceRequestResponse startRequest(UUID providerUserId, UUID requestId) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));
@@ -652,6 +688,10 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, key = "#requestId"),
+            @CacheEvict(value = CacheNames.SERVICE_REQUESTS, allEntries = true)
+    })
     public ServiceRequestResponse completeRequest(UUID providerUserId, UUID requestId) {
         ServiceRequest request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service request not found with ID: " + requestId));

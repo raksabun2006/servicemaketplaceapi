@@ -1,5 +1,6 @@
 package com.kh.serviceplatform.features.service;
 
+import com.kh.serviceplatform.common.cache.CacheNames;
 import com.kh.serviceplatform.common.exception.BadRequestException;
 import com.kh.serviceplatform.common.exception.ForbiddenException;
 import com.kh.serviceplatform.common.exception.ResourceNotFoundException;
@@ -15,6 +16,9 @@ import com.kh.serviceplatform.features.service.enums.ServiceCategory;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -45,6 +49,7 @@ public class ServiceServiceImpl implements ServiceService {
     private final ServiceMapper mapper;
 
     @Override
+    @CacheEvict(value = CacheNames.PUBLIC_SERVICES, allEntries = true)
     public ServiceResponse createService(UUID userId, CreateServiceRequest request) {
         ProviderProfile provider = providerProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider profile not found for user: " + userId));
@@ -92,6 +97,10 @@ public class ServiceServiceImpl implements ServiceService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PUBLIC_SERVICES, key = "#serviceId"),
+            @CacheEvict(value = CacheNames.PUBLIC_SERVICES, allEntries = true)
+    })
     public ServiceResponse updateMyService(UUID userId, UUID serviceId, UpdateServiceRequest request) {
         ServiceOffer service = serviceRepository.findById(serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found with ID: " + serviceId));
@@ -127,6 +136,10 @@ public class ServiceServiceImpl implements ServiceService {
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(value = CacheNames.PUBLIC_SERVICES, key = "#serviceId"),
+            @CacheEvict(value = CacheNames.PUBLIC_SERVICES, allEntries = true)
+    })
     public void deleteMyService(UUID userId, UUID serviceId) {
         ServiceOffer service = serviceRepository.findById(serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found with ID: " + serviceId));
@@ -138,6 +151,12 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = CacheNames.PUBLIC_SERVICES,
+            key = "T(java.lang.String).format('catalog:%s:%s:%s:%s:%s:%d:%d:%s', " +
+                  "#search, #category, #providerId, #minPrice, #maxPrice, " +
+                  "#pageable.pageNumber, #pageable.pageSize, #pageable.sort)"
+    )
     public Page<ServiceResponse> getPublicServices(
             String search,
             ServiceCategory category,
@@ -186,6 +205,7 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = CacheNames.PUBLIC_SERVICES, key = "#serviceId")
     public ServiceResponse getPublicServiceById(UUID serviceId) {
         ServiceOffer service = serviceRepository.findById(serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found with ID: " + serviceId));

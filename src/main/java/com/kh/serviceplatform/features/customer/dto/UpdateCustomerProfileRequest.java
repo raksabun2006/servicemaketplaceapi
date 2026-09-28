@@ -31,6 +31,24 @@ public record UpdateCustomerProfileRequest(
         String postalCode,
 
         @Size(max = 2000)
-        String notes
+        String notes,
+
+        Double latitude,
+
+        Double longitude
 ) {
+    public UpdateCustomerProfileRequest(
+            String fullName,
+            String phone,
+            String avatarUrl,
+            String preferredLanguage,
+            String preferredCurrency,
+            String address,
+            String city,
+            String district,
+            String postalCode,
+            String notes
+    ) {
+        this(fullName, phone, avatarUrl, preferredLanguage, preferredCurrency, address, city, district, postalCode, notes, null, null);
+    }
 }

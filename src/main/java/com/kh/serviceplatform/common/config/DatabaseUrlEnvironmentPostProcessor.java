@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Automatically parses Railway / Heroku style DATABASE_URL or DATABASE_PUBLIC_URL
- * into Spring Boot datasource properties (spring.datasource.url, username, password).
+ * Automatically parses Railway / Heroku style DATABASE_URL / REDIS_URL
+ * into Spring Boot properties.
  */
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProcessor {
@@ -21,8 +21,16 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
     private static final String DATABASE_URL = "DATABASE_URL";
     private static final String DATABASE_PUBLIC_URL = "DATABASE_PUBLIC_URL";
 
+    private static final String REDIS_URL = "REDIS_URL";
+    private static final String REDIS_PUBLIC_URL = "REDIS_PUBLIC_URL";
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        processDatabaseUrl(environment);
+        processRedisUrl(environment);
+    }
+
+    private void processDatabaseUrl(ConfigurableEnvironment environment) {
         String dbUrl = environment.getProperty(DATABASE_URL);
         if (dbUrl == null || dbUrl.isBlank()) {
             dbUrl = environment.getProperty(DATABASE_PUBLIC_URL);
@@ -74,6 +82,51 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
             System.out.println("Successfully configured Spring datasource from DATABASE_URL (" + host + ":" + port + "/" + dbName + ")");
         } catch (Exception ex) {
             System.err.println("Failed to parse DATABASE_URL: " + ex.getMessage());
+        }
+    }
+
+    private void processRedisUrl(ConfigurableEnvironment environment) {
+        String redisUrl = environment.getProperty(REDIS_URL);
+        if (redisUrl == null || redisUrl.isBlank()) {
+            redisUrl = environment.getProperty(REDIS_PUBLIC_URL);
+        }
+
+        if (redisUrl == null || redisUrl.isBlank()) {
+            return;
+        }
+
+        try {
+            String trimmedUrl = redisUrl.trim();
+            if (!trimmedUrl.startsWith("redis://") && !trimmedUrl.startsWith("rediss://")) {
+                return;
+            }
+
+            URI uri = URI.create(trimmedUrl);
+            String host = uri.getHost();
+            int port = uri.getPort() == -1 ? 6379 : uri.getPort();
+            boolean isSsl = trimmedUrl.startsWith("rediss://");
+
+            Map<String, Object> targetProps = new HashMap<>();
+            targetProps.put("spring.data.redis.url", trimmedUrl);
+            targetProps.put("spring.data.redis.host", host);
+            targetProps.put("spring.data.redis.port", port);
+            targetProps.put("spring.data.redis.ssl.enabled", isSsl);
+
+            String userInfo = uri.getUserInfo();
+            if (userInfo != null && !userInfo.isBlank()) {
+                String[] parts = userInfo.split(":", 2);
+                if (parts.length > 1) {
+                    targetProps.put("spring.data.redis.username", parts[0]);
+                    targetProps.put("spring.data.redis.password", parts[1]);
+                } else {
+                    targetProps.put("spring.data.redis.password", parts[0]);
+                }
+            }
+
+            environment.getPropertySources().addFirst(new MapPropertySource("railwayRedisUrlConfig", targetProps));
+            System.out.println("Successfully configured Spring Redis from REDIS_URL (" + host + ":" + port + ", ssl=" + isSsl + ")");
+        } catch (Exception ex) {
+            System.err.println("Failed to parse REDIS_URL: " + ex.getMessage());
         }
     }
 }
